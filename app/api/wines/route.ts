@@ -27,10 +27,16 @@ export async function GET(request: NextRequest) {
     const authenticatedSupabase = createAuthenticatedClient(accessToken);
 
     // Fetch user's wines
-    const { data: wines, error } = await authenticatedSupabase
+    // Try to fetch with quantity first, fallback if column doesn't exist
+    let wines: any[] | null = null;
+    let error: any = null;
+    
+    // First attempt: try with quantity column
+    const { data: winesWithQuantity, error: errorWithQuantity } = await authenticatedSupabase
       .from("user_wines")
       .select(`
         id,
+        quantity,
         date_added,
         wines (
           id,
@@ -44,6 +50,34 @@ export async function GET(request: NextRequest) {
       `)
       .eq("user_id", user.id)
       .order("date_added", { ascending: false });
+
+    // If quantity column doesn't exist, try without it
+    if (errorWithQuantity && errorWithQuantity.code === '42703' && errorWithQuantity.message?.includes('quantity')) {
+      console.warn("Quantity column doesn't exist, fetching without it. Please run the migration SQL.");
+      const { data: winesWithoutQuantity, error: errorWithoutQuantity } = await authenticatedSupabase
+        .from("user_wines")
+        .select(`
+          id,
+          date_added,
+          wines (
+            id,
+            name,
+            grape,
+            region,
+            vintage,
+            label_image_url,
+            notes
+          )
+        `)
+        .eq("user_id", user.id)
+        .order("date_added", { ascending: false });
+      
+      wines = winesWithoutQuantity;
+      error = errorWithoutQuantity;
+    } else {
+      wines = winesWithQuantity;
+      error = errorWithQuantity;
+    }
 
     if (error) {
       throw error;
@@ -59,6 +93,7 @@ export async function GET(request: NextRequest) {
       label_image_url: uw.wines.label_image_url,
       notes: uw.wines.notes,
       date_added: uw.date_added,
+      quantity: uw.quantity ?? 1, // Default to 1 if quantity doesn't exist
     })) || [];
 
     return NextResponse.json(formattedWines);
@@ -173,14 +208,16 @@ export async function POST(request: NextRequest) {
 
     console.log("Wine inserted successfully:", wine);
 
-    // Link wine to user
-    console.log("Linking wine to user:", { user_id: user.id, wine_id: wine.id });
+    // Link wine to user with quantity
+    const quantity = wineData.quantity && wineData.quantity > 0 ? wineData.quantity : 1;
+    console.log("Linking wine to user:", { user_id: user.id, wine_id: wine.id, quantity });
     
     const { error: linkError } = await authenticatedSupabase
       .from("user_wines")
       .insert({
         user_id: user.id,
         wine_id: wine.id,
+        quantity: quantity,
       });
 
     if (linkError) {

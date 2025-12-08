@@ -23,6 +23,7 @@ export function UploadForm() {
   const [preview, setPreview] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [extractedData, setExtractedData] = useState<ExtractedWineData | null>(null);
+  const [quantity, setQuantity] = useState<number>(1);
   const [saving, setSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
@@ -91,7 +92,7 @@ export function UploadForm() {
       // Upload image to Supabase storage first
       const formData = new FormData();
       formData.append("image", file);
-      formData.append("wineData", JSON.stringify(extractedData));
+      formData.append("wineData", JSON.stringify({ ...extractedData, quantity }));
 
       const response = await fetch("/api/wines", {
         method: "POST",
@@ -125,6 +126,7 @@ export function UploadForm() {
       setFile(null);
       setPreview(null);
       setExtractedData(null);
+      setQuantity(1);
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
       }
@@ -232,6 +234,17 @@ export function UploadForm() {
                 <Input value={extractedData.notes} readOnly />
               </div>
             )}
+            <div className="space-y-2">
+              <Label htmlFor="quantity">Quantity (bottles)</Label>
+              <Input
+                id="quantity"
+                type="number"
+                min="1"
+                value={quantity}
+                onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+                required
+              />
+            </div>
             <Button
               onClick={handleSave}
               disabled={saving}

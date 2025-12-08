@@ -139,6 +139,11 @@ export default function Home() {
             <p className="text-muted-foreground">
               Welcome back, {user.email}
             </p>
+            {wines.length > 0 && (
+              <p className="text-sm text-muted-foreground mt-1">
+                {wines.length} {wines.length === 1 ? "wine" : "wines"} • {wines.reduce((sum, wine) => sum + (wine.quantity || 1), 0)} total bottles
+              </p>
+            )}
           </div>
           <div className="flex gap-2">
             <Link href="/upload">

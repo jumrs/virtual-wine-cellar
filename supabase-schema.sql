@@ -18,9 +18,13 @@ CREATE TABLE IF NOT EXISTS user_wines (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   wine_id UUID NOT NULL REFERENCES wines(id) ON DELETE CASCADE,
+  quantity INTEGER NOT NULL DEFAULT 1,
   date_added TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   UNIQUE(user_id, wine_id)
 );
+
+-- Add quantity column if table already exists (for existing installations)
+ALTER TABLE user_wines ADD COLUMN IF NOT EXISTS quantity INTEGER NOT NULL DEFAULT 1;
 
 -- Enable Row Level Security
 ALTER TABLE wines ENABLE ROW LEVEL SECURITY;

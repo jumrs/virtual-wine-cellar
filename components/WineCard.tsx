@@ -2,7 +2,7 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Trash2, Wine } from "lucide-react";
+import { Trash2, Wine, Package } from "lucide-react";
 import Image from "next/image";
 
 export interface Wine {
@@ -14,6 +14,7 @@ export interface Wine {
   label_image_url?: string;
   notes?: string;
   date_added?: string;
+  quantity?: number;
 }
 
 interface WineCardProps {
@@ -32,6 +33,12 @@ export function WineCard({ wine, onDelete }: WineCardProps) {
               {wine.grape && <span className="block">{wine.grape}</span>}
               {wine.region && <span className="block">{wine.region}</span>}
               {wine.vintage && <span className="block">Vintage: {wine.vintage}</span>}
+              {wine.quantity !== undefined && (
+                <span className="block flex items-center gap-1 mt-2 font-medium text-foreground">
+                  <Package className="h-3 w-3" />
+                  {wine.quantity} {wine.quantity === 1 ? "bottle" : "bottles"}
+                </span>
+              )}
             </CardDescription>
           </div>
           {wine.label_image_url && (
