@@ -27,8 +27,10 @@ interface EditWineDialogProps {
 export function EditWineDialog({ wine, open, onOpenChange, onSave }: EditWineDialogProps) {
   const [formData, setFormData] = useState({
     name: "",
+    type: "",
     grape: "",
     region: "",
+    country: "",
     vintage: "",
     notes: "",
     quantity: 1,
@@ -41,8 +43,10 @@ export function EditWineDialog({ wine, open, onOpenChange, onSave }: EditWineDia
     if (wine) {
       setFormData({
         name: wine.name || "",
+        type: wine.type || "",
         grape: wine.grape || "",
         region: wine.region || "",
+        country: wine.country || "",
         vintage: wine.vintage?.toString() || "",
         notes: wine.notes || "",
         quantity: wine.quantity || 1,
@@ -71,8 +75,10 @@ export function EditWineDialog({ wine, open, onOpenChange, onSave }: EditWineDia
         },
         body: JSON.stringify({
           name: formData.name,
+          type: formData.type || null,
           grape: formData.grape || null,
           region: formData.region || null,
+          country: formData.country || null,
           vintage: formData.vintage ? parseInt(formData.vintage) : null,
           notes: formData.notes || null,
           quantity: formData.quantity,
@@ -131,6 +137,16 @@ export function EditWineDialog({ wine, open, onOpenChange, onSave }: EditWineDia
             />
           </div>
 
+          <div className="space-y-2">
+            <Label htmlFor="edit-type">Wine Type</Label>
+            <Input
+              id="edit-type"
+              value={formData.type}
+              onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+              placeholder="e.g., Red, White, Rosé, Sparkling"
+            />
+          </div>
+
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="edit-grape">Grape Varietal</Label>
@@ -148,9 +164,19 @@ export function EditWineDialog({ wine, open, onOpenChange, onSave }: EditWineDia
                 id="edit-region"
                 value={formData.region}
                 onChange={(e) => setFormData({ ...formData, region: e.target.value })}
-                placeholder="e.g., Bordeaux, France"
+                placeholder="e.g., Bordeaux"
               />
             </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="edit-country">Country</Label>
+            <Input
+              id="edit-country"
+              value={formData.country}
+              onChange={(e) => setFormData({ ...formData, country: e.target.value })}
+              placeholder="e.g., France"
+            />
           </div>
 
           <div className="grid grid-cols-2 gap-4">

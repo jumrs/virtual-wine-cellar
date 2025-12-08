@@ -5,13 +5,21 @@
 CREATE TABLE IF NOT EXISTS wines (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL,
+  type TEXT,
   grape TEXT,
   region TEXT,
+  country TEXT,
   vintage INTEGER,
   label_image_url TEXT,
   notes TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+
+-- Add type column if table already exists (for existing installations)
+ALTER TABLE wines ADD COLUMN IF NOT EXISTS type TEXT;
+
+-- Add country column if table already exists (for existing installations)
+ALTER TABLE wines ADD COLUMN IF NOT EXISTS country TEXT;
 
 -- Create user_wines junction table
 CREATE TABLE IF NOT EXISTS user_wines (

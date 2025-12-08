@@ -12,8 +12,10 @@ import Image from "next/image";
 
 interface ExtractedWineData {
   name: string;
+  type?: string;
   grape?: string;
   region?: string;
+  country?: string;
   vintage?: number;
   notes?: string;
 }
@@ -210,6 +212,12 @@ export function UploadForm() {
               <Label>Name</Label>
               <Input value={extractedData.name} readOnly />
             </div>
+            {extractedData.type && (
+              <div className="space-y-2">
+                <Label>Wine Type</Label>
+                <Input value={extractedData.type} readOnly />
+              </div>
+            )}
             {extractedData.grape && (
               <div className="space-y-2">
                 <Label>Grape Varietal</Label>
@@ -220,6 +228,12 @@ export function UploadForm() {
               <div className="space-y-2">
                 <Label>Region</Label>
                 <Input value={extractedData.region} readOnly />
+              </div>
+            )}
+            {extractedData.country && (
+              <div className="space-y-2">
+                <Label>Country</Label>
+                <Input value={extractedData.country} readOnly />
               </div>
             )}
             {extractedData.vintage && (

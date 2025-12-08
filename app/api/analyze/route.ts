@@ -27,36 +27,53 @@ export async function POST(request: NextRequest) {
     const mimeType = file.type;
 
     // Use OpenAI Vision API to analyze the wine label
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages: [
-        {
-          role: "user",
-          content: [
-            {
-              type: "text",
-              text: `Analyze this wine label image and extract the following information in JSON format:
-{
-  "name": "wine name",
-  "grape": "grape varietal if visible",
-  "region": "region/appellation if visible",
-  "vintage": year as number if visible,
-  "notes": "any additional relevant information"
-}
-
-Be as accurate as possible. If information is not visible, omit that field. Return only valid JSON.`,
+const response = await openai.chat.completions.create({
+    model: "gpt-4o",
+    messages: [
+      {
+        role: "user",
+        content: [
+          {
+            type: "text",
+            text: `You are an expert wine-label analyzer and wine-data researcher.
+  
+  Your task:
+  1. Analyze the provided wine-label image.
+  2. Extract all visible information.
+  3. For any field that is missing, unclear, or not visible, search the internet using the detected wine name and producer.
+  4. Verify information with reputable sources (producer website, major wine retailers, wine databases).
+  5. If a field cannot be verified, return null instead of guessing.
+  
+  Return ONLY valid JSON with the following structure:
+  
+  {
+    "name": "wine name",
+    "type": "wine type if visible or found online (e.g. red, white, rosé, sparkling, etc.)",
+    "grape": "grape varietal if visible or found online (e.g. Cabernet Sauvignon, Pinot Noir, Chardonnay, etc.)",
+    "region": "region/appellation if visible or found online (e.g. Bordeaux, Napa Valley)",
+    "country": "country if visible or found online (e.g. France, Italy, USA)",
+    "vintage": year as number or null,
+    "notes": "additional relevant information such as producer, cuvée, classification, label details"
+  }
+  
+  Rules:
+  - Do NOT include explanations.
+  - Do NOT output anything outside the JSON.
+  - Prioritize information that is visible on the label before online results.
+  - If conflicting online sources appear, choose the most authoritative one.`,
+          },
+          {
+            type: "image_url",
+            image_url: {
+              url: `data:${mimeType};base64,${base64Image}`,
             },
-            {
-              type: "image_url",
-              image_url: {
-                url: `data:${mimeType};base64,${base64Image}`,
-              },
-            },
-          ],
-        },
-      ],
-      max_tokens: 500,
-    });
+          },
+        ],
+      },
+    ],
+    max_tokens: 500,
+  });
+  
 
     const content = response.choices[0]?.message?.content;
     if (!content) {
@@ -74,8 +91,10 @@ Be as accurate as possible. If information is not visible, omit that field. Retu
       // If parsing fails, try to extract fields manually
       wineData = {
         name: content.match(/"name":\s*"([^"]+)"/)?.[1] || "Unknown Wine",
+        type: content.match(/"type":\s*"([^"]+)"/)?.[1],
         grape: content.match(/"grape":\s*"([^"]+)"/)?.[1],
         region: content.match(/"region":\s*"([^"]+)"/)?.[1],
+        country: content.match(/"country":\s*"([^"]+)"/)?.[1],
         vintage: parseInt(content.match(/"vintage":\s*(\d+)/)?.[1] || "0") || undefined,
         notes: content.match(/"notes":\s*"([^"]+)"/)?.[1],
       };

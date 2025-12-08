@@ -11,10 +11,12 @@ import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/lib/supabaseClient";
 import { ConfigCheck } from "@/components/ConfigCheck";
 import { EditWineDialog } from "@/components/EditWineDialog";
+import { WineFilters } from "@/components/WineFilters";
 
 export default function Home() {
   const { user, loading, signOut } = useAuth();
   const [wines, setWines] = useState<Wine[]>([]);
+  const [filteredWines, setFilteredWines] = useState<Wine[]>([]);
   const [loadingWines, setLoadingWines] = useState(false);
   const [editingWine, setEditingWine] = useState<Wine | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
@@ -50,6 +52,7 @@ export default function Home() {
 
       const data = await response.json();
       setWines(data);
+      setFilteredWines(data);
     } catch (error) {
       toast({
         title: "Error",
@@ -155,7 +158,7 @@ export default function Home() {
             </p>
             {wines.length > 0 && (
               <p className="text-sm text-muted-foreground mt-1">
-                {wines.length} {wines.length === 1 ? "wine" : "wines"} • {wines.reduce((sum, wine) => sum + (wine.quantity || 1), 0)} total bottles
+                {filteredWines.length} of {wines.length} {wines.length === 1 ? "wine" : "wines"} • {wines.reduce((sum, wine) => sum + (wine.quantity || 1), 0)} total bottles
               </p>
             )}
           </div>
@@ -199,11 +202,24 @@ export default function Home() {
             </CardContent>
           </Card>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {wines.map((wine) => (
-              <WineCard key={wine.id} wine={wine} onDelete={handleDelete} onEdit={handleEdit} />
-            ))}
-          </div>
+          <>
+            <WineFilters wines={wines} onFilterChange={setFilteredWines} />
+            {filteredWines.length === 0 ? (
+              <Card>
+                <CardContent className="py-12 text-center">
+                  <p className="text-muted-foreground">
+                    No wines match your filters. Try adjusting your search criteria.
+                  </p>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {filteredWines.map((wine) => (
+                  <WineCard key={wine.id} wine={wine} onDelete={handleDelete} onEdit={handleEdit} />
+                ))}
+              </div>
+            )}
+          </>
         )}
       </div>
       <EditWineDialog

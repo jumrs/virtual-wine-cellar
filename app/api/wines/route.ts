@@ -41,8 +41,10 @@ export async function GET(request: NextRequest) {
         wines (
           id,
           name,
+          type,
           grape,
           region,
+          country,
           vintage,
           label_image_url,
           notes
@@ -87,8 +89,10 @@ export async function GET(request: NextRequest) {
     const formattedWines = wines?.map((uw: any) => ({
       id: uw.wines.id,
       name: uw.wines.name,
+      type: uw.wines.type,
       grape: uw.wines.grape,
       region: uw.wines.region,
+      country: uw.wines.country,
       vintage: uw.wines.vintage,
       label_image_url: uw.wines.label_image_url,
       notes: uw.wines.notes,
@@ -188,8 +192,10 @@ export async function POST(request: NextRequest) {
       .from("wines")
       .insert({
         name: wineData.name,
+        type: wineData.type || null,
         grape: wineData.grape || null,
         region: wineData.region || null,
+        country: wineData.country || null,
         vintage: wineData.vintage || null,
         label_image_url: imageUrl || null,
         notes: wineData.notes || null,
@@ -276,7 +282,7 @@ export async function PUT(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { name, grape, region, vintage, notes, quantity } = body;
+    const { name, type, grape, region, country, vintage, notes, quantity } = body;
 
     if (!name) {
       return NextResponse.json(
@@ -308,8 +314,10 @@ export async function PUT(request: NextRequest) {
       .from("wines")
       .update({
         name,
+        type: type || null,
         grape: grape || null,
         region: region || null,
+        country: country || null,
         vintage: vintage || null,
         notes: notes || null,
       })

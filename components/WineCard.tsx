@@ -8,7 +8,9 @@ import Image from "next/image";
 export interface Wine {
   id: string;
   name: string;
+  type?: string;
   region?: string;
+  country?: string;
   grape?: string;
   vintage?: number;
   label_image_url?: string;
@@ -31,7 +33,11 @@ export function WineCard({ wine, onDelete, onEdit }: WineCardProps) {
           <div className="flex-1">
             <CardTitle className="text-xl mb-2">{wine.name}</CardTitle>
             <CardDescription>
+              {wine.type && (
+                <span className="block font-medium text-foreground">{wine.type}</span>
+              )}
               {wine.grape && <span className="block">{wine.grape}</span>}
+              {wine.country && <span className="block">{wine.country}</span>}
               {wine.region && <span className="block">{wine.region}</span>}
               {wine.vintage && <span className="block">Vintage: {wine.vintage}</span>}
               {wine.quantity !== undefined && (
