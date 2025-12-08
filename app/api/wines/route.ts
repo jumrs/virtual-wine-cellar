@@ -1,0 +1,263 @@
+import { NextRequest, NextResponse } from "next/server";
+import { supabase } from "@/lib/supabaseClient";
+import { createAuthenticatedClient } from "@/lib/supabaseServer";
+
+export async function GET(request: NextRequest) {
+  try {
+    const authHeader = request.headers.get("authorization");
+    const accessToken = authHeader?.replace("Bearer ", "");
+
+    if (!accessToken) {
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+
+    const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
+
+    if (authError || !user) {
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+
+    // Create authenticated client
+    const authenticatedSupabase = createAuthenticatedClient(accessToken);
+
+    // Fetch user's wines
+    const { data: wines, error } = await authenticatedSupabase
+      .from("user_wines")
+      .select(`
+        id,
+        date_added,
+        wines (
+          id,
+          name,
+          grape,
+          region,
+          vintage,
+          label_image_url,
+          notes
+        )
+      `)
+      .eq("user_id", user.id)
+      .order("date_added", { ascending: false });
+
+    if (error) {
+      throw error;
+    }
+
+    // Flatten the response
+    const formattedWines = wines?.map((uw: any) => ({
+      id: uw.wines.id,
+      name: uw.wines.name,
+      grape: uw.wines.grape,
+      region: uw.wines.region,
+      vintage: uw.wines.vintage,
+      label_image_url: uw.wines.label_image_url,
+      notes: uw.wines.notes,
+      date_added: uw.date_added,
+    })) || [];
+
+    return NextResponse.json(formattedWines);
+  } catch (error) {
+    console.error("Error fetching wines:", error);
+    return NextResponse.json(
+      { error: "Failed to fetch wines" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const authHeader = request.headers.get("authorization");
+    const accessToken = authHeader?.replace("Bearer ", "");
+
+    if (!accessToken) {
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+
+    const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
+
+    if (authError || !user) {
+      console.error("Auth error:", authError);
+      return NextResponse.json(
+        { error: `Unauthorized: ${authError?.message || "Invalid token"}` },
+        { status: 401 }
+      );
+    }
+
+    console.log("Authenticated user:", user.id, user.email);
+
+    const formData = await request.formData();
+    const file = formData.get("image") as File;
+    const wineDataStr = formData.get("wineData") as string;
+    
+    if (!wineDataStr) {
+      return NextResponse.json(
+        { error: "Missing wine data" },
+        { status: 400 }
+      );
+    }
+    
+    const wineData = JSON.parse(wineDataStr);
+
+    // Create authenticated client (uses service role for server-side operations)
+    const authenticatedSupabase = createAuthenticatedClient(accessToken);
+
+    // Upload image to Supabase storage if provided
+    let imageUrl: string | undefined;
+    if (file) {
+      const fileExt = file.name.split(".").pop();
+      const fileName = `${user.id}/${Date.now()}.${fileExt}`;
+      const fileBuffer = await file.arrayBuffer();
+
+      const { data: uploadData, error: uploadError } = await authenticatedSupabase.storage
+        .from("wine-labels")
+        .upload(fileName, fileBuffer, {
+          contentType: file.type,
+        });
+
+      if (uploadError) {
+        console.error("Error uploading image:", uploadError);
+        // Don't fail the whole request if image upload fails
+        // Just log it and continue without the image URL
+        if (uploadError.message.includes("Bucket not found")) {
+          console.error("Storage bucket 'wine-labels' does not exist. Please create it in Supabase Storage.");
+        }
+      } else {
+        const { data: urlData } = authenticatedSupabase.storage
+          .from("wine-labels")
+          .getPublicUrl(fileName);
+        imageUrl = urlData.publicUrl;
+      }
+    }
+
+    // Insert wine into database
+    console.log("Inserting wine with data:", {
+      name: wineData.name,
+      grape: wineData.grape,
+      region: wineData.region,
+      vintage: wineData.vintage,
+      label_image_url: imageUrl,
+      notes: wineData.notes,
+    });
+
+    const { data: wine, error: wineError } = await authenticatedSupabase
+      .from("wines")
+      .insert({
+        name: wineData.name,
+        grape: wineData.grape || null,
+        region: wineData.region || null,
+        vintage: wineData.vintage || null,
+        label_image_url: imageUrl || null,
+        notes: wineData.notes || null,
+      })
+      .select()
+      .single();
+
+    if (wineError) {
+      console.error("Error inserting wine:", wineError);
+      console.error("Error details:", JSON.stringify(wineError, null, 2));
+      return NextResponse.json(
+        { error: `Database error: ${wineError.message || wineError.code || "Failed to save wine"}. Details: ${JSON.stringify(wineError)}` },
+        { status: 500 }
+      );
+    }
+
+    console.log("Wine inserted successfully:", wine);
+
+    // Link wine to user
+    console.log("Linking wine to user:", { user_id: user.id, wine_id: wine.id });
+    
+    const { error: linkError } = await authenticatedSupabase
+      .from("user_wines")
+      .insert({
+        user_id: user.id,
+        wine_id: wine.id,
+      });
+
+    if (linkError) {
+      console.error("Error linking wine to user:", linkError);
+      console.error("Link error details:", JSON.stringify(linkError, null, 2));
+      // Try to clean up the wine if linking fails
+      await authenticatedSupabase.from("wines").delete().eq("id", wine.id);
+      return NextResponse.json(
+        { error: `Failed to link wine to your account: ${linkError.message || linkError.code || "Database error"}. Details: ${JSON.stringify(linkError)}` },
+        { status: 500 }
+      );
+    }
+
+    console.log("Wine linked to user successfully");
+
+    return NextResponse.json({ success: true, wine });
+  } catch (error: any) {
+    console.error("Error saving wine:", error);
+    return NextResponse.json(
+      { error: error.message || "Failed to save wine" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const authHeader = request.headers.get("authorization");
+    const accessToken = authHeader?.replace("Bearer ", "");
+
+    if (!accessToken) {
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+
+    const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
+
+    if (authError || !user) {
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+
+    // Create authenticated client
+    const authenticatedSupabase = createAuthenticatedClient(accessToken);
+
+    const { searchParams } = new URL(request.url);
+    const wineId = searchParams.get("id");
+
+    if (!wineId) {
+      return NextResponse.json(
+        { error: "Wine ID is required" },
+        { status: 400 }
+      );
+    }
+
+    // Remove from user_wines (not deleting the wine itself in case others have it)
+    const { error } = await authenticatedSupabase
+      .from("user_wines")
+      .delete()
+      .eq("user_id", user.id)
+      .eq("wine_id", wineId);
+
+    if (error) {
+      throw error;
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("Error deleting wine:", error);
+    return NextResponse.json(
+      { error: "Failed to delete wine" },
+      { status: 500 }
+    );
+  }
+}
+
