@@ -10,11 +10,14 @@ import Link from "next/link";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/lib/supabaseClient";
 import { ConfigCheck } from "@/components/ConfigCheck";
+import { EditWineDialog } from "@/components/EditWineDialog";
 
 export default function Home() {
   const { user, loading, signOut } = useAuth();
   const [wines, setWines] = useState<Wine[]>([]);
   const [loadingWines, setLoadingWines] = useState(false);
+  const [editingWine, setEditingWine] = useState<Wine | null>(null);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -56,6 +59,17 @@ export default function Home() {
     } finally {
       setLoadingWines(false);
     }
+  };
+
+  const handleEdit = (wine: Wine) => {
+    setEditingWine(wine);
+    setEditDialogOpen(true);
+  };
+
+  const handleSaveEdit = () => {
+    fetchWines(); // Refresh the wines list
+    setEditDialogOpen(false);
+    setEditingWine(null);
   };
 
   const handleDelete = async (wineId: string) => {
@@ -187,11 +201,17 @@ export default function Home() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {wines.map((wine) => (
-              <WineCard key={wine.id} wine={wine} onDelete={handleDelete} />
+              <WineCard key={wine.id} wine={wine} onDelete={handleDelete} onEdit={handleEdit} />
             ))}
           </div>
         )}
       </div>
+      <EditWineDialog
+        wine={editingWine}
+        open={editDialogOpen}
+        onOpenChange={setEditDialogOpen}
+        onSave={handleSaveEdit}
+      />
     </div>
   );
 }

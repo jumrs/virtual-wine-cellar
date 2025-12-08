@@ -243,6 +243,113 @@ export async function POST(request: NextRequest) {
   }
 }
 
+export async function PUT(request: NextRequest) {
+  try {
+    const authHeader = request.headers.get("authorization");
+    const accessToken = authHeader?.replace("Bearer ", "");
+
+    if (!accessToken) {
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+
+    const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
+
+    if (authError || !user) {
+      console.error("Auth error:", authError);
+      return NextResponse.json(
+        { error: `Unauthorized: ${authError?.message || "Invalid token"}` },
+        { status: 401 }
+      );
+    }
+
+    const { searchParams } = new URL(request.url);
+    const wineId = searchParams.get("id");
+
+    if (!wineId) {
+      return NextResponse.json(
+        { error: "Wine ID is required" },
+        { status: 400 }
+      );
+    }
+
+    const body = await request.json();
+    const { name, grape, region, vintage, notes, quantity } = body;
+
+    if (!name) {
+      return NextResponse.json(
+        { error: "Wine name is required" },
+        { status: 400 }
+      );
+    }
+
+    // Create authenticated client
+    const authenticatedSupabase = createAuthenticatedClient(accessToken);
+
+    // Verify user owns this wine
+    const { data: userWine, error: checkError } = await authenticatedSupabase
+      .from("user_wines")
+      .select("id")
+      .eq("user_id", user.id)
+      .eq("wine_id", wineId)
+      .single();
+
+    if (checkError || !userWine) {
+      return NextResponse.json(
+        { error: "Wine not found or you don't have permission to edit it" },
+        { status: 404 }
+      );
+    }
+
+    // Update wine information
+    const { data: updatedWine, error: wineError } = await authenticatedSupabase
+      .from("wines")
+      .update({
+        name,
+        grape: grape || null,
+        region: region || null,
+        vintage: vintage || null,
+        notes: notes || null,
+      })
+      .eq("id", wineId)
+      .select()
+      .single();
+
+    if (wineError) {
+      console.error("Error updating wine:", wineError);
+      return NextResponse.json(
+        { error: `Failed to update wine: ${wineError.message || wineError.code}` },
+        { status: 500 }
+      );
+    }
+
+    // Update quantity in user_wines
+    const { error: quantityError } = await authenticatedSupabase
+      .from("user_wines")
+      .update({
+        quantity: quantity && quantity > 0 ? quantity : 1,
+      })
+      .eq("user_id", user.id)
+      .eq("wine_id", wineId);
+
+    if (quantityError) {
+      console.error("Error updating quantity:", quantityError);
+      // Don't fail the whole request if quantity update fails
+      console.warn("Quantity update failed, but wine was updated");
+    }
+
+    return NextResponse.json({ success: true, wine: updatedWine });
+  } catch (error: any) {
+    console.error("Error updating wine:", error);
+    return NextResponse.json(
+      { error: error.message || "Failed to update wine" },
+      { status: 500 }
+    );
+  }
+}
+
 export async function DELETE(request: NextRequest) {
   try {
     const authHeader = request.headers.get("authorization");

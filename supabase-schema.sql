@@ -39,6 +39,11 @@ CREATE POLICY "Users can insert their own wines"
   ON user_wines FOR INSERT
   WITH CHECK (auth.uid() = user_id);
 
+CREATE POLICY "Users can update their own wines"
+  ON user_wines FOR UPDATE
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+
 CREATE POLICY "Users can delete their own wines"
   ON user_wines FOR DELETE
   USING (auth.uid() = user_id);
@@ -57,6 +62,16 @@ CREATE POLICY "Users can view wines they own"
 CREATE POLICY "Users can insert wines"
   ON wines FOR INSERT
   WITH CHECK (true);
+
+CREATE POLICY "Users can update wines they own"
+  ON wines FOR UPDATE
+  USING (
+    EXISTS (
+      SELECT 1 FROM user_wines
+      WHERE user_wines.wine_id = wines.id
+      AND user_wines.user_id = auth.uid()
+    )
+  );
 
 -- Create storage bucket for wine labels
 INSERT INTO storage.buckets (id, name, public) 

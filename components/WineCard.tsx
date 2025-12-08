@@ -2,7 +2,7 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Trash2, Wine, Package } from "lucide-react";
+import { Trash2, Wine, Package, Edit } from "lucide-react";
 import Image from "next/image";
 
 export interface Wine {
@@ -20,11 +20,12 @@ export interface Wine {
 interface WineCardProps {
   wine: Wine;
   onDelete: (id: string) => void;
+  onEdit: (wine: Wine) => void;
 }
 
-export function WineCard({ wine, onDelete }: WineCardProps) {
+export function WineCard({ wine, onDelete, onEdit }: WineCardProps) {
   return (
-    <Card className="hover:shadow-lg transition-shadow">
+    <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => onEdit(wine)}>
       <CardHeader>
         <div className="flex items-start justify-between">
           <div className="flex-1">
@@ -59,15 +60,32 @@ export function WineCard({ wine, onDelete }: WineCardProps) {
         </CardContent>
       )}
       <CardContent className="pt-0">
-        <Button
-          variant="destructive"
-          size="sm"
-          onClick={() => onDelete(wine.id)}
-          className="w-full"
-        >
-          <Trash2 className="h-4 w-4 mr-2" />
-          Remove
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={(e) => {
+              e.stopPropagation();
+              onEdit(wine);
+            }}
+            className="flex-1"
+          >
+            <Edit className="h-4 w-4 mr-2" />
+            Edit
+          </Button>
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete(wine.id);
+            }}
+            className="flex-1"
+          >
+            <Trash2 className="h-4 w-4 mr-2" />
+            Remove
+          </Button>
+        </div>
       </CardContent>
     </Card>
   );
