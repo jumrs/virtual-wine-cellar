@@ -243,7 +243,13 @@ export default function Home() {
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {filteredWines.map((wine) => (
-                  <WineCard key={wine.id} wine={wine} onDelete={handleDelete} onEdit={handleEdit} />
+                  <WineCard 
+                    key={wine.id} 
+                    wine={wine} 
+                    onDelete={handleDelete} 
+                    onEdit={handleEdit}
+                    onImageUpdate={fetchWines}
+                  />
                 ))}
               </div>
             )}

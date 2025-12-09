@@ -1,9 +1,11 @@
 "use client";
 
+import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Trash2, Wine, Package, Edit, Star } from "lucide-react";
+import { Trash2, Wine, Package, Edit, Star, ImageIcon } from "lucide-react";
 import Image from "next/image";
+import { EditWineImageDialog } from "@/components/EditWineImageDialog";
 
 export interface Wine {
   id: string;
@@ -24,21 +26,57 @@ interface WineCardProps {
   wine: Wine;
   onDelete: (id: string) => void;
   onEdit: (wine: Wine) => void;
+  onImageUpdate?: () => void;
 }
 
-export function WineCard({ wine, onDelete, onEdit }: WineCardProps) {
+export function WineCard({ wine, onDelete, onEdit, onImageUpdate }: WineCardProps) {
+  const [imageEditOpen, setImageEditOpen] = useState(false);
+
   return (
-    <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => onEdit(wine)}>
-      {wine.label_image_url && (
-        <div className="w-full h-64 relative rounded-t-lg overflow-hidden border-b">
-          <Image
-            src={wine.label_image_url}
-            alt={wine.name}
-            fill
-            className="object-contain bg-background"
-          />
-        </div>
-      )}
+    <>
+      <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => onEdit(wine)}>
+        {wine.label_image_url && (
+          <div className="w-full h-64 relative rounded-t-lg overflow-hidden border-b group">
+            <Image
+              src={wine.label_image_url}
+              alt={wine.name}
+              fill
+              className="object-contain bg-background"
+            />
+            <Button
+              variant="secondary"
+              size="sm"
+              className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
+              onClick={(e) => {
+                e.stopPropagation();
+                setImageEditOpen(true);
+              }}
+            >
+              <ImageIcon className="h-4 w-4 mr-2" />
+              Edit Image
+            </Button>
+          </div>
+        )}
+        {!wine.label_image_url && (
+          <div className="w-full h-64 relative rounded-t-lg overflow-hidden border-b bg-muted flex items-center justify-center group">
+            <div className="text-center text-muted-foreground">
+              <ImageIcon className="h-12 w-12 mx-auto mb-2 opacity-50" />
+              <p className="text-sm">No image</p>
+            </div>
+            <Button
+              variant="secondary"
+              size="sm"
+              className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
+              onClick={(e) => {
+                e.stopPropagation();
+                setImageEditOpen(true);
+              }}
+            >
+              <ImageIcon className="h-4 w-4 mr-2" />
+              Add Image
+            </Button>
+          </div>
+        )}
       <CardHeader>
         <div className="flex items-start justify-between gap-4">
           <div className="flex-1">
@@ -102,7 +140,14 @@ export function WineCard({ wine, onDelete, onEdit }: WineCardProps) {
           </Button>
         </div>
       </CardContent>
-    </Card>
+      </Card>
+      <EditWineImageDialog
+        wine={wine}
+        open={imageEditOpen}
+        onOpenChange={setImageEditOpen}
+        onImageUpdated={onImageUpdate}
+      />
+    </>
   );
 }
 
