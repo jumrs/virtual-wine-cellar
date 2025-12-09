@@ -32,6 +32,7 @@ export function EditWineDialog({ wine, open, onOpenChange, onSave }: EditWineDia
     region: "",
     country: "",
     vintage: "",
+    score: "",
     notes: "",
     quantity: 1,
   });
@@ -48,6 +49,7 @@ export function EditWineDialog({ wine, open, onOpenChange, onSave }: EditWineDia
         region: wine.region || "",
         country: wine.country || "",
         vintage: wine.vintage?.toString() || "",
+        score: wine.score?.toString() || "",
         notes: wine.notes || "",
         quantity: wine.quantity || 1,
       });
@@ -80,6 +82,7 @@ export function EditWineDialog({ wine, open, onOpenChange, onSave }: EditWineDia
           region: formData.region || null,
           country: formData.country || null,
           vintage: formData.vintage ? parseInt(formData.vintage) : null,
+          score: formData.score ? parseFloat(formData.score) : null,
           notes: formData.notes || null,
           quantity: formData.quantity,
         }),
@@ -194,16 +197,30 @@ export function EditWineDialog({ wine, open, onOpenChange, onSave }: EditWineDia
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="edit-quantity">Quantity (bottles) *</Label>
+              <Label htmlFor="edit-score">Score (out of 5)</Label>
               <Input
-                id="edit-quantity"
+                id="edit-score"
                 type="number"
-                min="1"
-                value={formData.quantity}
-                onChange={(e) => setFormData({ ...formData, quantity: Math.max(1, parseInt(e.target.value) || 1) })}
-                required
+                step="0.1"
+                min="0"
+                max="5"
+                value={formData.score}
+                onChange={(e) => setFormData({ ...formData, score: e.target.value })}
+                placeholder="e.g., 4.5"
               />
             </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="edit-quantity">Quantity (bottles) *</Label>
+            <Input
+              id="edit-quantity"
+              type="number"
+              min="1"
+              value={formData.quantity}
+              onChange={(e) => setFormData({ ...formData, quantity: Math.max(1, parseInt(e.target.value) || 1) })}
+              required
+            />
           </div>
 
           <div className="space-y-2">

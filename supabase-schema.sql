@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS wines (
   region TEXT,
   country TEXT,
   vintage INTEGER,
+  score NUMERIC(3, 2) CHECK (score >= 0 AND score <= 5),
   label_image_url TEXT,
   notes TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
@@ -20,6 +21,9 @@ ALTER TABLE wines ADD COLUMN IF NOT EXISTS type TEXT;
 
 -- Add country column if table already exists (for existing installations)
 ALTER TABLE wines ADD COLUMN IF NOT EXISTS country TEXT;
+
+-- Add score column if table already exists (for existing installations)
+ALTER TABLE wines ADD COLUMN IF NOT EXISTS score NUMERIC(3, 2) CHECK (score >= 0 AND score <= 5);
 
 -- Create user_wines junction table
 CREATE TABLE IF NOT EXISTS user_wines (

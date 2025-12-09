@@ -2,7 +2,7 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Trash2, Wine, Package, Edit } from "lucide-react";
+import { Trash2, Wine, Package, Edit, Star } from "lucide-react";
 import Image from "next/image";
 
 export interface Wine {
@@ -13,6 +13,7 @@ export interface Wine {
   country?: string;
   grape?: string;
   vintage?: number;
+  score?: number | null;
   label_image_url?: string;
   notes?: string;
   date_added?: string;
@@ -39,28 +40,34 @@ export function WineCard({ wine, onDelete, onEdit }: WineCardProps) {
         </div>
       )}
       <CardHeader>
-        <CardTitle className="text-xl mb-2">{wine.name}</CardTitle>
-        <CardDescription>
-          {wine.type && (
-            <span className="block font-medium text-foreground">{wine.type}</span>
-          )}
-          {wine.grape && <span className="block">{wine.grape}</span>}
-          {wine.country && <span className="block">{wine.country}</span>}
-          {wine.region && <span className="block">{wine.region}</span>}
-          {wine.vintage && <span className="block">Vintage: {wine.vintage}</span>}
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex-1">
+            <CardTitle className="text-xl mb-2">{wine.name}</CardTitle>
+            <CardDescription>
+              {wine.type && (
+                <span className="block font-medium text-foreground">{wine.type}</span>
+              )}
+              {wine.grape && <span className="block">{wine.grape}</span>}
+              {wine.country && <span className="block">{wine.country}</span>}
+              {wine.region && <span className="block">{wine.region}</span>}
+              {wine.vintage && <span className="block">Vintage: {wine.vintage}</span>}
+              {wine.quantity !== undefined && (
+                <span className="block flex items-center gap-1 mt-2 font-medium text-foreground">
+                  <Package className="h-3 w-3" />
+                  {wine.quantity} {wine.quantity === 1 ? "bottle" : "bottles"}
+                </span>
+              )}
+            </CardDescription>
+          </div>
           {wine.score !== null && wine.score !== undefined && (
-            <span className="block flex items-center gap-1 mt-2 font-medium text-foreground">
-              <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-              {wine.score.toFixed(1)}/5
-            </span>
+            <div className="flex-shrink-0 w-20 h-20 rounded-full bg-primary/10 border-2 border-primary/20 flex items-center justify-center">
+              <div className="text-center">
+                <div className="text-3xl font-bold text-primary">{wine.score.toFixed(1)}</div>
+                <div className="text-xs text-muted-foreground mt-0.5">/5</div>
+              </div>
+            </div>
           )}
-          {wine.quantity !== undefined && (
-            <span className="block flex items-center gap-1 mt-2 font-medium text-foreground">
-              <Package className="h-3 w-3" />
-              {wine.quantity} {wine.quantity === 1 ? "bottle" : "bottles"}
-            </span>
-          )}
-        </CardDescription>
+        </div>
       </CardHeader>
       {wine.notes && (
         <CardContent>

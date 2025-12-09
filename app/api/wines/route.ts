@@ -46,6 +46,7 @@ export async function GET(request: NextRequest) {
           region,
           country,
           vintage,
+          score,
           label_image_url,
           notes
         )
@@ -67,6 +68,7 @@ export async function GET(request: NextRequest) {
             grape,
             region,
             vintage,
+            score,
             label_image_url,
             notes
           )
@@ -94,6 +96,7 @@ export async function GET(request: NextRequest) {
       region: uw.wines.region,
       country: uw.wines.country,
       vintage: uw.wines.vintage,
+      score: uw.wines.score ?? null,
       label_image_url: uw.wines.label_image_url,
       notes: uw.wines.notes,
       date_added: uw.date_added,
@@ -184,6 +187,7 @@ export async function POST(request: NextRequest) {
       grape: wineData.grape,
       region: wineData.region,
       vintage: wineData.vintage,
+      score: wineData.score,
       label_image_url: imageUrl,
       notes: wineData.notes,
     });
@@ -197,6 +201,7 @@ export async function POST(request: NextRequest) {
         region: wineData.region || null,
         country: wineData.country || null,
         vintage: wineData.vintage || null,
+        score: wineData.score || null,
         label_image_url: imageUrl || null,
         notes: wineData.notes || null,
       })
@@ -282,7 +287,7 @@ export async function PUT(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { name, type, grape, region, country, vintage, notes, quantity } = body;
+    const { name, type, grape, region, country, vintage, score, notes, quantity } = body;
 
     if (!name) {
       return NextResponse.json(
@@ -319,6 +324,7 @@ export async function PUT(request: NextRequest) {
         region: region || null,
         country: country || null,
         vintage: vintage || null,
+        score: score !== undefined && score !== null ? score : null,
         notes: notes || null,
       })
       .eq("id", wineId)
