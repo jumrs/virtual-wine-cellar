@@ -3,9 +3,11 @@
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Trash2, Wine, Package, Edit, Star, ImageIcon } from "lucide-react";
+import { Trash2, Wine, Package, Edit, Star, ImageIcon, Plus, Minus } from "lucide-react";
 import Image from "next/image";
 import { EditWineImageDialog } from "@/components/EditWineImageDialog";
+import { useToast } from "@/components/ui/use-toast";
+import { supabase } from "@/lib/supabaseClient";
 
 export interface Wine {
   id: string;
@@ -27,14 +29,61 @@ interface WineCardProps {
   onDelete: (id: string) => void;
   onEdit: (wine: Wine) => void;
   onImageUpdate?: () => void;
+  onQuantityUpdate?: () => void;
+  isRanOut?: boolean;
 }
 
-export function WineCard({ wine, onDelete, onEdit, onImageUpdate }: WineCardProps) {
+export function WineCard({ wine, onDelete, onEdit, onImageUpdate, onQuantityUpdate, isRanOut = false }: WineCardProps) {
   const [imageEditOpen, setImageEditOpen] = useState(false);
+  const [updatingQuantity, setUpdatingQuantity] = useState(false);
+  const { toast } = useToast();
+
+  const handleQuantityChange = async (delta: number) => {
+    if (updatingQuantity) return;
+    
+    const newQuantity = Math.max(0, (wine.quantity || 0) + delta);
+    
+    setUpdatingQuantity(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const accessToken = session?.access_token;
+
+      if (!accessToken) {
+        throw new Error("Not authenticated");
+      }
+
+      const response = await fetch("/api/wines/quantity", {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          wineId: wine.id,
+          quantity: newQuantity,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || "Failed to update quantity");
+      }
+
+      onQuantityUpdate?.();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update quantity. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setUpdatingQuantity(false);
+    }
+  };
 
   return (
     <>
-      <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => onEdit(wine)}>
+      <Card className={`hover:shadow-lg transition-shadow cursor-pointer ${isRanOut ? 'opacity-60 grayscale' : ''}`} onClick={() => onEdit(wine)}>
         {wine.label_image_url && (
           <div className="w-full h-64 relative rounded-t-lg overflow-hidden border-b group">
             <Image
@@ -95,13 +144,78 @@ export function WineCard({ wine, onDelete, onEdit, onImageUpdate }: WineCardProp
                   {wine.quantity} {wine.quantity === 1 ? "bottle" : "bottles"}
                 </span>
               )}
+              {wine.quantity === 0 && (
+                <span className="block text-sm text-muted-foreground mt-1 italic">
+                  Out of stock
+                </span>
+              )}
             </CardDescription>
           </div>
           {wine.score !== null && wine.score !== undefined && (
-            <div className="flex-shrink-0 w-20 h-20 rounded-full bg-primary/10 border-2 border-primary/20 flex items-center justify-center">
-              <div className="text-center">
-                <div className="text-3xl font-bold text-primary">{wine.score.toFixed(1)}</div>
-                <div className="text-xs text-muted-foreground mt-0.5">/5</div>
+            <div className="flex-shrink-0 flex flex-col items-end gap-2">
+              <div className="w-20 h-20 rounded-full bg-primary/10 border-2 border-primary/20 flex items-center justify-center">
+                <div className="text-center">
+                  <div className="text-3xl font-bold text-primary">{wine.score.toFixed(1)}</div>
+                  <div className="text-xs text-muted-foreground mt-0.5">/5</div>
+                </div>
+              </div>
+              {/* Quantity Controls */}
+              <div className="flex gap-2">
+                <Button
+                  size="lg"
+                  variant="outline"
+                  className="h-10 w-10 p-0"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleQuantityChange(-1);
+                  }}
+                  disabled={updatingQuantity || (wine.quantity || 0) === 0}
+                >
+                  <Minus className="h-5 w-5" />
+                </Button>
+                <Button
+                  size="lg"
+                  variant="outline"
+                  className="h-10 w-10 p-0"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleQuantityChange(1);
+                  }}
+                  disabled={updatingQuantity}
+                >
+                  <Plus className="h-5 w-5" />
+                </Button>
+              </div>
+            </div>
+          )}
+          {(!wine.score || wine.score === null || wine.score === undefined) && (
+            <div className="flex-shrink-0 flex flex-col items-end gap-2">
+              {/* Quantity Controls when no score */}
+              <div className="flex gap-2">
+                <Button
+                  size="lg"
+                  variant="outline"
+                  className="h-10 w-10 p-0"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleQuantityChange(-1);
+                  }}
+                  disabled={updatingQuantity || (wine.quantity || 0) === 0}
+                >
+                  <Minus className="h-5 w-5" />
+                </Button>
+                <Button
+                  size="lg"
+                  variant="outline"
+                  className="h-10 w-10 p-0"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleQuantityChange(1);
+                  }}
+                  disabled={updatingQuantity}
+                >
+                  <Plus className="h-5 w-5" />
+                </Button>
               </div>
             </div>
           )}

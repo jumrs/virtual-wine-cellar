@@ -339,11 +339,11 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    // Update quantity in user_wines
+    // Update quantity in user_wines (allow 0)
     const { error: quantityError } = await authenticatedSupabase
       .from("user_wines")
       .update({
-        quantity: quantity && quantity > 0 ? quantity : 1,
+        quantity: quantity !== undefined && quantity !== null ? Math.max(0, quantity) : 1,
       })
       .eq("user_id", user.id)
       .eq("wine_id", wineId);

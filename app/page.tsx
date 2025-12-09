@@ -39,6 +39,14 @@ export default function Home() {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const { toast } = useToast();
 
+  // Separate wines into active (quantity > 0) and ran out (quantity === 0)
+  const activeWines = wines.filter(w => (w.quantity || 0) > 0);
+  const ranOutWines = wines.filter(w => (w.quantity || 0) === 0);
+  
+  // Filter active wines
+  const filteredActiveWines = filteredWines.filter(w => (w.quantity || 0) > 0);
+  const filteredRanOutWines = filteredWines.filter(w => (w.quantity || 0) === 0);
+
   useEffect(() => {
     if (user) {
       fetchWines();
@@ -183,7 +191,9 @@ export default function Home() {
             </p>
             {wines.length > 0 && (
               <p className="text-sm text-muted-foreground mt-1">
-                {filteredWines.length} of {wines.length} {wines.length === 1 ? "wine" : "wines"} • {wines.reduce((sum, wine) => sum + (wine.quantity || 1), 0)} total bottles
+                {activeWines.length} {activeWines.length === 1 ? "wine" : "wines"} in cellar
+                {ranOutWines.length > 0 && ` • ${ranOutWines.length} ran out`}
+                {activeWines.length > 0 && ` • ${activeWines.reduce((sum, wine) => sum + (wine.quantity || 0), 0)} total bottles`}
               </p>
             )}
           </div>
@@ -232,7 +242,49 @@ export default function Home() {
               wines={wines} 
               onFilterChange={setFilteredWines} 
             />
-            {filteredWines.length === 0 ? (
+            
+            {/* Active Wines Section */}
+            {filteredActiveWines.length > 0 && (
+              <div className="mb-8">
+                <h2 className="text-2xl font-semibold mb-4">My Cellar</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {filteredActiveWines.map((wine) => (
+                    <WineCard 
+                      key={wine.id} 
+                      wine={wine} 
+                      onDelete={handleDelete} 
+                      onEdit={handleEdit}
+                      onImageUpdate={fetchWines}
+                      onQuantityUpdate={fetchWines}
+                      isRanOut={false}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Ran Out Wines Section */}
+            {filteredRanOutWines.length > 0 && (
+              <div className="mt-8">
+                <h2 className="text-2xl font-semibold mb-4 text-muted-foreground">Ran Out</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {filteredRanOutWines.map((wine) => (
+                    <WineCard 
+                      key={wine.id} 
+                      wine={wine} 
+                      onDelete={handleDelete} 
+                      onEdit={handleEdit}
+                      onImageUpdate={fetchWines}
+                      onQuantityUpdate={fetchWines}
+                      isRanOut={true}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* No wines match filters */}
+            {filteredWines.length === 0 && (
               <Card>
                 <CardContent className="py-12 text-center">
                   <p className="text-muted-foreground">
@@ -240,18 +292,6 @@ export default function Home() {
                   </p>
                 </CardContent>
               </Card>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {filteredWines.map((wine) => (
-                  <WineCard 
-                    key={wine.id} 
-                    wine={wine} 
-                    onDelete={handleDelete} 
-                    onEdit={handleEdit}
-                    onImageUpdate={fetchWines}
-                  />
-                ))}
-              </div>
             )}
           </>
         )}
