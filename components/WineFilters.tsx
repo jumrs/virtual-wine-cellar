@@ -13,6 +13,23 @@ import {
 import { X, Filter } from "lucide-react";
 import type { Wine } from "./WineCard";
 
+// Sort wines: by country (alphabetically), then by name (alphabetically) within each country
+function sortWinesByCountryAndName(wines: Wine[]): Wine[] {
+  return [...wines].sort((a, b) => {
+    // Handle wines without country - put them at the end
+    const countryA = a.country || "ZZZ_No Country";
+    const countryB = b.country || "ZZZ_No Country";
+    
+    // First sort by country
+    if (countryA !== countryB) {
+      return countryA.localeCompare(countryB);
+    }
+    
+    // If same country, sort by name
+    return (a.name || "").localeCompare(b.name || "");
+  });
+}
+
 interface WineFiltersProps {
   wines: Wine[];
   onFilterChange: (filteredWines: Wine[]) => void;
@@ -101,7 +118,10 @@ export function WineFilters({ wines, onFilterChange }: WineFiltersProps) {
       filtered = filtered.filter((wine) => wine.vintage === vintage);
     }
 
-    onFilterChange(filtered);
+    // Sort filtered wines: by country (alphabetically), then by name (alphabetically) within each country
+    const sortedFiltered = sortWinesByCountryAndName(filtered);
+    
+    onFilterChange(sortedFiltered);
   }, [wines, searchQuery, selectedCountry, selectedGrape, selectedType, selectedVintage, onFilterChange]);
 
   const hasActiveFilters =

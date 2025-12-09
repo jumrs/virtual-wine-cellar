@@ -13,6 +13,23 @@ import { ConfigCheck } from "@/components/ConfigCheck";
 import { EditWineDialog } from "@/components/EditWineDialog";
 import { WineFilters } from "@/components/WineFilters";
 
+// Sort wines: by country (alphabetically), then by name (alphabetically) within each country
+function sortWinesByCountryAndName(wines: Wine[]): Wine[] {
+  return [...wines].sort((a, b) => {
+    // Handle wines without country - put them at the end
+    const countryA = a.country || "ZZZ_No Country";
+    const countryB = b.country || "ZZZ_No Country";
+    
+    // First sort by country
+    if (countryA !== countryB) {
+      return countryA.localeCompare(countryB);
+    }
+    
+    // If same country, sort by name
+    return (a.name || "").localeCompare(b.name || "");
+  });
+}
+
 export default function Home() {
   const { user, loading, signOut } = useAuth();
   const [wines, setWines] = useState<Wine[]>([]);
@@ -51,8 +68,12 @@ export default function Home() {
       }
 
       const data = await response.json();
-      setWines(data);
-      setFilteredWines(data);
+      
+      // Sort wines: by country (alphabetically), then by name (alphabetically) within each country
+      const sortedWines = sortWinesByCountryAndName(data);
+      
+      setWines(sortedWines);
+      setFilteredWines(sortedWines);
     } catch (error) {
       toast({
         title: "Error",
@@ -70,7 +91,7 @@ export default function Home() {
   };
 
   const handleSaveEdit = () => {
-    fetchWines(); // Refresh the wines list
+    fetchWines(); // Refresh the wines list (fetchWines already sorts them)
     setEditDialogOpen(false);
     setEditingWine(null);
   };
@@ -97,7 +118,11 @@ export default function Home() {
         throw new Error("Failed to delete wine");
       }
 
-      setWines(wines.filter((w) => w.id !== wineId));
+      setWines((prevWines) => {
+        const updated = prevWines.filter((w) => w.id !== wineId);
+        // Re-sort after deletion
+        return sortWinesByCountryAndName(updated);
+      });
       toast({
         title: "Success",
         description: "Wine removed from your cellar.",
@@ -203,7 +228,10 @@ export default function Home() {
           </Card>
         ) : (
           <>
-            <WineFilters wines={wines} onFilterChange={setFilteredWines} />
+            <WineFilters 
+              wines={wines} 
+              onFilterChange={setFilteredWines} 
+            />
             {filteredWines.length === 0 ? (
               <Card>
                 <CardContent className="py-12 text-center">
