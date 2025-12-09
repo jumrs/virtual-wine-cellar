@@ -28,37 +28,39 @@ interface WineCardProps {
 export function WineCard({ wine, onDelete, onEdit }: WineCardProps) {
   return (
     <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => onEdit(wine)}>
-      <CardHeader>
-        <div className="flex items-start justify-between">
-          <div className="flex-1">
-            <CardTitle className="text-xl mb-2">{wine.name}</CardTitle>
-            <CardDescription>
-              {wine.type && (
-                <span className="block font-medium text-foreground">{wine.type}</span>
-              )}
-              {wine.grape && <span className="block">{wine.grape}</span>}
-              {wine.country && <span className="block">{wine.country}</span>}
-              {wine.region && <span className="block">{wine.region}</span>}
-              {wine.vintage && <span className="block">Vintage: {wine.vintage}</span>}
-              {wine.quantity !== undefined && (
-                <span className="block flex items-center gap-1 mt-2 font-medium text-foreground">
-                  <Package className="h-3 w-3" />
-                  {wine.quantity} {wine.quantity === 1 ? "bottle" : "bottles"}
-                </span>
-              )}
-            </CardDescription>
-          </div>
-          {wine.label_image_url && (
-            <div className="ml-4 w-20 h-20 relative rounded overflow-hidden border">
-              <Image
-                src={wine.label_image_url}
-                alt={wine.name}
-                fill
-                className="object-cover"
-              />
-            </div>
-          )}
+      {wine.label_image_url && (
+        <div className="w-full h-64 relative rounded-t-lg overflow-hidden border-b">
+          <Image
+            src={wine.label_image_url}
+            alt={wine.name}
+            fill
+            className="object-contain bg-background"
+          />
         </div>
+      )}
+      <CardHeader>
+        <CardTitle className="text-xl mb-2">{wine.name}</CardTitle>
+        <CardDescription>
+          {wine.type && (
+            <span className="block font-medium text-foreground">{wine.type}</span>
+          )}
+          {wine.grape && <span className="block">{wine.grape}</span>}
+          {wine.country && <span className="block">{wine.country}</span>}
+          {wine.region && <span className="block">{wine.region}</span>}
+          {wine.vintage && <span className="block">Vintage: {wine.vintage}</span>}
+          {wine.score !== null && wine.score !== undefined && (
+            <span className="block flex items-center gap-1 mt-2 font-medium text-foreground">
+              <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+              {wine.score.toFixed(1)}/5
+            </span>
+          )}
+          {wine.quantity !== undefined && (
+            <span className="block flex items-center gap-1 mt-2 font-medium text-foreground">
+              <Package className="h-3 w-3" />
+              {wine.quantity} {wine.quantity === 1 ? "bottle" : "bottles"}
+            </span>
+          )}
+        </CardDescription>
       </CardHeader>
       {wine.notes && (
         <CardContent>
