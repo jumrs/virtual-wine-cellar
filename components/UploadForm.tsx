@@ -38,7 +38,9 @@ export function UploadForm() {
   const [analyzingAll, setAnalyzingAll] = useState(false);
   const [savingAll, setSavingAll] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const winesRef = useRef<WineWithFile[]>([]);
   const { toast } = useToast();
+  
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = Array.from(e.target.files || []);
@@ -69,7 +71,11 @@ export function UploadForm() {
       };
     });
 
-    setWines([...wines, ...newWines]);
+    setWines((prevWines) => {
+      const updated = [...prevWines, ...newWines];
+      winesRef.current = updated;
+      return updated;
+    });
     
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
@@ -77,18 +83,29 @@ export function UploadForm() {
   };
 
   const removeWine = (index: number) => {
-    const wine = wines[index];
-    URL.revokeObjectURL(wine.preview);
-    setWines(wines.filter((_, i) => i !== index));
+    setWines((prevWines) => {
+      const wine = prevWines[index];
+      if (wine) {
+        URL.revokeObjectURL(wine.preview);
+      }
+      const updated = prevWines.filter((_, i) => i !== index);
+      winesRef.current = updated;
+      return updated;
+    });
   };
 
   const analyzeWine = async (index: number) => {
     const wine = wines[index];
     if (!wine || wine.analyzing) return;
 
-    setWines(wines.map((w, i) => 
-      i === index ? { ...w, analyzing: true, error: undefined } : w
-    ));
+    // Use functional update to ensure we have the latest state
+    setWines((prevWines) => {
+      const updated = prevWines.map((w, i) => 
+        i === index ? { ...w, analyzing: true, error: undefined } : w
+      );
+      winesRef.current = updated;
+      return updated;
+    });
 
     try {
       const formData = new FormData();
@@ -105,9 +122,15 @@ export function UploadForm() {
       }
 
       const data = await response.json();
-      setWines(wines.map((w, i) => 
-        i === index ? { ...w, extractedData: data, analyzing: false } : w
-      ));
+      
+      // Use functional update to ensure we have the latest state
+      setWines((prevWines) => {
+        const updated = prevWines.map((w, i) => 
+          i === index ? { ...w, extractedData: data, analyzing: false } : w
+        );
+        winesRef.current = updated;
+        return updated;
+      });
       
       toast({
         title: "Success",
@@ -115,9 +138,14 @@ export function UploadForm() {
       });
     } catch (error: any) {
       console.error("Analyze error:", error);
-      setWines(wines.map((w, i) => 
-        i === index ? { ...w, analyzing: false, error: error.message } : w
-      ));
+      // Use functional update to ensure we have the latest state
+      setWines((prevWines) => {
+        const updated = prevWines.map((w, i) => 
+          i === index ? { ...w, analyzing: false, error: error.message } : w
+        );
+        winesRef.current = updated;
+        return updated;
+      });
       toast({
         title: "Error",
         description: error.message || "Failed to analyze wine label. Please try again.",
@@ -127,32 +155,46 @@ export function UploadForm() {
   };
 
   const analyzeAll = async () => {
+    if (analyzingAll) return;
     setAnalyzingAll(true);
     
-    // Analyze all wines that haven't been analyzed yet
-    const winesToAnalyze = wines.filter((w) => !w.extractedData && !w.analyzing);
-    
-    for (let i = 0; i < winesToAnalyze.length; i++) {
-      const wineIndex = wines.findIndex((w) => w === winesToAnalyze[i]);
-      if (wineIndex !== -1) {
-        await analyzeWine(wineIndex);
-        // Small delay between requests to avoid rate limiting
-        if (i < winesToAnalyze.length - 1) {
-          await new Promise(resolve => setTimeout(resolve, 500));
+    try {
+      // Get initial list of indices that need analysis
+      const indicesToAnalyze = winesRef.current
+        .map((w, idx) => ({ wine: w, index: idx }))
+        .filter(({ wine }) => !wine.extractedData && !wine.analyzing)
+        .map(({ index }) => index);
+      
+      // Analyze each wine sequentially
+      for (let i = 0; i < indicesToAnalyze.length; i++) {
+        const index = indicesToAnalyze[i];
+        
+        // Double-check this wine still needs analysis (in case state changed)
+        if (winesRef.current[index] && !winesRef.current[index].extractedData && !winesRef.current[index].analyzing) {
+          await analyzeWine(index);
+          
+          // Small delay between requests to avoid rate limiting
+          if (i < indicesToAnalyze.length - 1) {
+            await new Promise(resolve => setTimeout(resolve, 500));
+          }
         }
       }
+    } finally {
+      setAnalyzingAll(false);
     }
-    
-    setAnalyzingAll(false);
   };
 
   const saveWine = async (index: number) => {
     const wine = wines[index];
     if (!wine.extractedData || wine.saving || wine.saved) return;
 
-    setWines(wines.map((w, i) => 
-      i === index ? { ...w, saving: true, error: undefined } : w
-    ));
+    setWines((prevWines) => {
+      const updated = prevWines.map((w, i) => 
+        i === index ? { ...w, saving: true, error: undefined } : w
+      );
+      winesRef.current = updated;
+      return updated;
+    });
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -186,9 +228,13 @@ export function UploadForm() {
         throw new Error(errorMessage);
       }
 
-      setWines(wines.map((w, i) => 
-        i === index ? { ...w, saving: false, saved: true } : w
-      ));
+      setWines((prevWines) => {
+        const updated = prevWines.map((w, i) => 
+          i === index ? { ...w, saving: false, saved: true } : w
+        );
+        winesRef.current = updated;
+        return updated;
+      });
 
       toast({
         title: "Success",
@@ -196,9 +242,13 @@ export function UploadForm() {
       });
     } catch (error: any) {
       console.error("Save error:", error);
-      setWines(wines.map((w, i) => 
-        i === index ? { ...w, saving: false, error: error.message } : w
-      ));
+      setWines((prevWines) => {
+        const updated = prevWines.map((w, i) => 
+          i === index ? { ...w, saving: false, error: error.message } : w
+        );
+        winesRef.current = updated;
+        return updated;
+      });
       toast({
         title: "Error",
         description: error.message || "Failed to save wine. Please try again.",
@@ -208,7 +258,7 @@ export function UploadForm() {
   };
 
   const saveAll = async () => {
-    const winesToSave = wines.filter((w) => w.extractedData && !w.saved && !w.saving);
+    const winesToSave = winesRef.current.filter((w) => w.extractedData && !w.saved && !w.saving);
     
     if (winesToSave.length === 0) {
       toast({
@@ -221,7 +271,7 @@ export function UploadForm() {
     setSavingAll(true);
     
     for (let i = 0; i < winesToSave.length; i++) {
-      const wineIndex = wines.findIndex((w) => w === winesToSave[i]);
+      const wineIndex = winesRef.current.findIndex((w) => w === winesToSave[i]);
       if (wineIndex !== -1) {
         await saveWine(wineIndex);
         // Small delay between requests
@@ -234,7 +284,7 @@ export function UploadForm() {
     setSavingAll(false);
     
     // Redirect to home page after a short delay if all saved
-    const allSaved = wines.every((w) => w.saved || !w.extractedData);
+    const allSaved = winesRef.current.every((w) => w.saved || !w.extractedData);
     if (allSaved) {
       setTimeout(() => {
         window.location.href = "/";
@@ -243,9 +293,13 @@ export function UploadForm() {
   };
 
   const updateQuantity = (index: number, quantity: number) => {
-    setWines(wines.map((w, i) => 
-      i === index ? { ...w, quantity: Math.max(1, quantity) } : w
-    ));
+    setWines((prevWines) => {
+      const updated = prevWines.map((w, i) => 
+        i === index ? { ...w, quantity: Math.max(1, quantity) } : w
+      );
+      winesRef.current = updated;
+      return updated;
+    });
   };
 
   const allAnalyzed = wines.length > 0 && wines.every((w) => w.extractedData || w.analyzing);
@@ -303,7 +357,6 @@ export function UploadForm() {
                 <Button
                   onClick={saveAll}
                   disabled={savingAll || !hasUnsavedWines}
-                  variant="default"
                   className="flex-1"
                 >
                   {savingAll ? (
