@@ -40,6 +40,7 @@ export function WineFilters({ wines, onFilterChange }: WineFiltersProps) {
   const [selectedGrape, setSelectedGrape] = useState<string>("all");
   const [selectedType, setSelectedType] = useState<string>("all");
   const [selectedVintage, setSelectedVintage] = useState<string>("all");
+  const [scoreSort, setScoreSort] = useState<string>("default");
   const [searchQuery, setSearchQuery] = useState("");
 
   // Extract unique values for filters
@@ -118,17 +119,59 @@ export function WineFilters({ wines, onFilterChange }: WineFiltersProps) {
       filtered = filtered.filter((wine) => wine.vintage === vintage);
     }
 
-    // Sort filtered wines: by country (alphabetically), then by name (alphabetically) within each country
-    const sortedFiltered = sortWinesByCountryAndName(filtered);
+    // Sort filtered wines
+    let sortedFiltered: Wine[];
+    
+    if (scoreSort === "low-to-high") {
+      // Sort by score (low to high), then by country and name
+      sortedFiltered = [...filtered].sort((a, b) => {
+        const scoreA = a.score ?? -1; // Wines without score go to the end
+        const scoreB = b.score ?? -1;
+        
+        if (scoreA !== scoreB) {
+          return scoreA - scoreB;
+        }
+        
+        // If same score, sort by country and name
+        const countryA = a.country || "ZZZ_No Country";
+        const countryB = b.country || "ZZZ_No Country";
+        if (countryA !== countryB) {
+          return countryA.localeCompare(countryB);
+        }
+        return (a.name || "").localeCompare(b.name || "");
+      });
+    } else if (scoreSort === "high-to-low") {
+      // Sort by score (high to low), then by country and name
+      sortedFiltered = [...filtered].sort((a, b) => {
+        const scoreA = a.score ?? -1; // Wines without score go to the end
+        const scoreB = b.score ?? -1;
+        
+        if (scoreA !== scoreB) {
+          return scoreB - scoreA;
+        }
+        
+        // If same score, sort by country and name
+        const countryA = a.country || "ZZZ_No Country";
+        const countryB = b.country || "ZZZ_No Country";
+        if (countryA !== countryB) {
+          return countryA.localeCompare(countryB);
+        }
+        return (a.name || "").localeCompare(b.name || "");
+      });
+    } else {
+      // Default: Sort by country (alphabetically), then by name (alphabetically) within each country
+      sortedFiltered = sortWinesByCountryAndName(filtered);
+    }
     
     onFilterChange(sortedFiltered);
-  }, [wines, searchQuery, selectedCountry, selectedGrape, selectedType, selectedVintage, onFilterChange]);
+  }, [wines, searchQuery, selectedCountry, selectedGrape, selectedType, selectedVintage, scoreSort, onFilterChange]);
 
   const hasActiveFilters =
     selectedCountry !== "all" ||
     selectedGrape !== "all" ||
     selectedType !== "all" ||
     selectedVintage !== "all" ||
+    scoreSort !== "default" ||
     searchQuery !== "";
 
   const clearFilters = () => {
@@ -136,6 +179,7 @@ export function WineFilters({ wines, onFilterChange }: WineFiltersProps) {
     setSelectedGrape("all");
     setSelectedType("all");
     setSelectedVintage("all");
+    setScoreSort("default");
     setSearchQuery("");
   };
 
@@ -157,7 +201,7 @@ export function WineFilters({ wines, onFilterChange }: WineFiltersProps) {
         )}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
         {/* Search */}
         <div className="lg:col-span-2">
           <Input
@@ -210,6 +254,18 @@ export function WineFilters({ wines, onFilterChange }: WineFiltersProps) {
                 {grape}
               </SelectItem>
             ))}
+          </SelectContent>
+        </Select>
+
+        {/* Score Sort Filter */}
+        <Select value={scoreSort} onValueChange={setScoreSort}>
+          <SelectTrigger>
+            <SelectValue placeholder="Sort by Score" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="default">Default Sort</SelectItem>
+            <SelectItem value="low-to-high">Score: Low to High</SelectItem>
+            <SelectItem value="high-to-low">Score: High to Low</SelectItem>
           </SelectContent>
         </Select>
       </div>
