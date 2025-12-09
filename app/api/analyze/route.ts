@@ -59,6 +59,7 @@ const response = await openai.chat.completions.create({
   Rules:
   - Do NOT include explanations.
   - Do NOT output anything outside the JSON.
+  - Do NOT write words starting with lowercase letters.
   - Prioritize information that is visible on the label before online results.
   - If conflicting online sources appear, choose the most authoritative one.`,
           },
