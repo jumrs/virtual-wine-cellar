@@ -4,18 +4,16 @@ import { useState, useRef } from "react";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Upload, Trash2, Loader2, Image as ImageIcon } from "lucide-react";
+import { Upload, Trash2, Loader2, Camera, X } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/lib/supabaseClient";
 import { type Wine } from "@/components/WineCard";
+import Image from "next/image";
 
 interface EditWineImageDialogProps {
   wine: Wine;
@@ -70,15 +68,15 @@ export function EditWineImageDialog({
       }
 
       toast({
-        title: "Success",
-        description: "Image updated successfully!",
+        title: "Image updated",
+        description: "Your wine photo has been updated.",
       });
 
       onImageUpdated?.();
       onOpenChange(false);
     } catch (error: any) {
       toast({
-        title: "Error",
+        title: "Upload failed",
         description: error.message || "Failed to upload image. Please try again.",
         variant: "destructive",
       });
@@ -121,8 +119,8 @@ export function EditWineImageDialog({
       }
 
       toast({
-        title: "Success",
-        description: "Image removed successfully!",
+        title: "Image removed",
+        description: "The wine photo has been removed.",
       });
 
       onImageUpdated?.();
@@ -140,80 +138,85 @@ export function EditWineImageDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle>Edit Wine Image</DialogTitle>
-          <DialogDescription>
-            Update the image for {wine.name}
-          </DialogDescription>
-        </DialogHeader>
+      <DialogContent className="max-w-sm p-0 gap-0 rounded-3xl overflow-hidden">
+        {/* Current Image Preview */}
+        <div className="relative h-48 bg-gradient-to-b from-muted to-muted/50">
+          {wine.label_image_url ? (
+            <Image
+              src={wine.label_image_url}
+              alt={wine.name}
+              fill
+              className="object-contain"
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center">
+              <Camera className="w-12 h-12 text-muted-foreground/40" />
+            </div>
+          )}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => onOpenChange(false)}
+            className="absolute top-3 right-3 w-8 h-8 rounded-full bg-background/80 backdrop-blur"
+          >
+            <X className="w-4 h-4" />
+          </Button>
+        </div>
 
-        <div className="space-y-6">
-          {/* Upload New Photo */}
-          <div className="space-y-2">
-            <Label>Upload New Photo</Label>
+        <div className="p-6 space-y-4">
+          <DialogHeader>
+            <DialogTitle className="font-serif text-xl">Edit Photo</DialogTitle>
+            <p className="text-sm text-muted-foreground">{wine.name}</p>
+          </DialogHeader>
+
+          {/* Upload Button */}
+          <Button
+            onClick={handleFileSelect}
+            disabled={uploading || removing}
+            className="w-full h-12 rounded-xl btn-wine"
+          >
+            {uploading ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Uploading...
+              </>
+            ) : (
+              <>
+                <Upload className="h-4 w-4 mr-2" />
+                Upload New Photo
+              </>
+            )}
+          </Button>
+          <Input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            onChange={handleFileChange}
+            className="hidden"
+          />
+
+          {/* Remove Button */}
+          {wine.label_image_url && (
             <Button
-              onClick={handleFileSelect}
-              disabled={uploading || removing}
-              className="w-full"
+              onClick={handleRemove}
+              disabled={removing || uploading}
               variant="outline"
+              className="w-full h-12 rounded-xl text-destructive hover:text-destructive hover:bg-destructive/10"
             >
-              {uploading ? (
+              {removing ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Uploading...
+                  Removing...
                 </>
               ) : (
                 <>
-                  <Upload className="h-4 w-4 mr-2" />
-                  Choose File
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Remove Photo
                 </>
               )}
             </Button>
-            <Input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              onChange={handleFileChange}
-              className="hidden"
-            />
-          </div>
-
-          {/* Remove Current Photo */}
-          {wine.label_image_url && (
-            <div className="space-y-2">
-              <Label>Remove Current Photo</Label>
-              <Button
-                onClick={handleRemove}
-                disabled={removing || uploading}
-                variant="destructive"
-                className="w-full"
-              >
-                {removing ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Removing...
-                  </>
-                ) : (
-                  <>
-                    <Trash2 className="h-4 w-4 mr-2" />
-                    Remove Image
-                  </>
-                )}
-              </Button>
-            </div>
           )}
         </div>
-
-        <DialogFooter>
-          <Button
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-            disabled={uploading || removing}
-          >
-            Cancel
-          </Button>
-        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

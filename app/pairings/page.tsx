@@ -3,10 +3,11 @@
 import { useAuth } from "@/components/AuthProvider";
 import { PairingChat } from "@/components/PairingChat";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Wine } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
+import { BottomNav } from "@/components/BottomNav";
 
 export default function PairingsPage() {
   const { user, loading } = useAuth();
@@ -20,8 +21,13 @@ export default function PairingsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p>Loading...</p>
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-center">
+          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-primary/10 flex items-center justify-center animate-pulse">
+            <Wine className="h-8 w-8 text-primary" />
+          </div>
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
       </div>
     );
   }
@@ -31,21 +37,29 @@ export default function PairingsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-red-50 to-purple-50">
-      <div className="container mx-auto px-4 py-8">
-        <div className="mb-6">
-          <Link href="/">
-            <Button variant="ghost">
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Cellar
-            </Button>
-          </Link>
+    <div className="min-h-screen bg-background">
+      {/* Header */}
+      <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-lg border-b border-border/50">
+        <div className="container mx-auto px-4 py-4">
+          <div className="flex items-center gap-4">
+            <Link href="/">
+              <Button variant="ghost" size="icon" className="rounded-full w-10 h-10">
+                <ArrowLeft className="h-5 w-5" />
+              </Button>
+            </Link>
+            <h1 className="text-xl font-semibold font-serif">Wine Pairings</h1>
+          </div>
         </div>
-        <div className="max-w-4xl mx-auto">
+      </header>
+
+      {/* Main Content */}
+      <main className="container mx-auto px-4 py-6 page-container">
+        <div className="max-w-2xl mx-auto">
           <PairingChat />
         </div>
-      </div>
+      </main>
+
+      <BottomNav />
     </div>
   );
 }
-

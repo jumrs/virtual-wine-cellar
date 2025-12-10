@@ -4,28 +4,26 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/components/AuthProvider";
 import { WineCard, type Wine } from "@/components/WineCard";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Plus, LogIn, Wine as WineIcon } from "lucide-react";
+import { Plus, LogIn, Wine as WineIcon, Camera, LogOut, ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/lib/supabaseClient";
 import { ConfigCheck } from "@/components/ConfigCheck";
 import { EditWineDialog } from "@/components/EditWineDialog";
 import { WineFilters } from "@/components/WineFilters";
+import { BottomNav } from "@/components/BottomNav";
+import Image from "next/image";
 
 // Sort wines: by country (alphabetically), then by name (alphabetically) within each country
 function sortWinesByCountryAndName(wines: Wine[]): Wine[] {
   return [...wines].sort((a, b) => {
-    // Handle wines without country - put them at the end
     const countryA = a.country || "ZZZ_No Country";
     const countryB = b.country || "ZZZ_No Country";
     
-    // First sort by country
     if (countryA !== countryB) {
       return countryA.localeCompare(countryB);
     }
     
-    // If same country, sort by name
     return (a.name || "").localeCompare(b.name || "");
   });
 }
@@ -46,6 +44,11 @@ export default function Home() {
   // Filter active wines
   const filteredActiveWines = filteredWines.filter(w => (w.quantity || 0) > 0);
   const filteredRanOutWines = filteredWines.filter(w => (w.quantity || 0) === 0);
+
+  // Get recent wines (last 5 added)
+  const recentWines = [...activeWines]
+    .sort((a, b) => new Date(b.date_added || 0).getTime() - new Date(a.date_added || 0).getTime())
+    .slice(0, 3);
 
   useEffect(() => {
     if (user) {
@@ -76,8 +79,6 @@ export default function Home() {
       }
 
       const data = await response.json();
-      
-      // Sort wines: by country (alphabetically), then by name (alphabetically) within each country
       const sortedWines = sortWinesByCountryAndName(data);
       
       setWines(sortedWines);
@@ -99,7 +100,7 @@ export default function Home() {
   };
 
   const handleSaveEdit = () => {
-    fetchWines(); // Refresh the wines list (fetchWines already sorts them)
+    fetchWines();
     setEditDialogOpen(false);
     setEditingWine(null);
   };
@@ -128,7 +129,6 @@ export default function Home() {
 
       setWines((prevWines) => {
         const updated = prevWines.filter((w) => w.id !== wineId);
-        // Re-sort after deletion
         return sortWinesByCountryAndName(updated);
       });
       toast({
@@ -146,10 +146,12 @@ export default function Home() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
-          <WineIcon className="h-12 w-12 animate-spin mx-auto mb-4" />
-          <p className="text-muted-foreground">Loading...</p>
+          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-primary/10 flex items-center justify-center animate-pulse">
+            <WineIcon className="h-8 w-8 text-primary" />
+          </div>
+          <p className="text-muted-foreground">Loading your cellar...</p>
         </div>
       </div>
     );
@@ -157,87 +159,174 @@ export default function Home() {
 
   if (!user) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-red-50 to-purple-50">
-        <Card className="w-full max-w-md">
-          <CardHeader className="text-center">
-            <WineIcon className="h-16 w-16 mx-auto mb-4 text-primary" />
-            <CardTitle className="text-3xl">Virtual Wine Cellar</CardTitle>
-            <CardDescription>
-              Manage your wine collection with AI-powered label recognition
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <Link href="/auth" className="block">
-              <Button className="w-full" size="lg">
-                <LogIn className="h-4 w-4 mr-2" />
-                Sign In / Sign Up
-              </Button>
-            </Link>
-          </CardContent>
-        </Card>
+      <div className="min-h-screen flex items-center justify-center bg-background px-4">
+        <div className="w-full max-w-md text-center">
+          {/* Logo */}
+          <div className="mb-8">
+            <div className="w-24 h-24 mx-auto mb-6 rounded-full bg-primary/10 flex items-center justify-center">
+              <WineIcon className="h-12 w-12 text-primary" />
+            </div>
+            <h1 className="text-4xl font-bold mb-2 font-serif">My Cellar</h1>
+            <p className="text-muted-foreground">
+              Your personal wine collection, beautifully organized
+            </p>
+          </div>
+
+          {/* Features */}
+          <div className="space-y-4 mb-8">
+            <div className="flex items-center gap-3 text-left p-4 rounded-2xl bg-card border border-border/50">
+              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                <Camera className="w-5 h-5 text-primary" />
+              </div>
+              <div>
+                <p className="font-medium">AI Label Recognition</p>
+                <p className="text-sm text-muted-foreground">Scan labels to instantly add wines</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 text-left p-4 rounded-2xl bg-card border border-border/50">
+              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                <WineIcon className="w-5 h-5 text-primary" />
+              </div>
+              <div>
+                <p className="font-medium">Smart Pairings</p>
+                <p className="text-sm text-muted-foreground">Get AI suggestions for your meals</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Sign In Button */}
+          <Link href="/auth" className="block">
+            <Button className="w-full h-14 text-base rounded-full btn-wine">
+              <LogIn className="h-5 w-5 mr-2" />
+              Sign In to Continue
+            </Button>
+          </Link>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-red-50 to-purple-50">
+    <div className="min-h-screen bg-background">
       <ConfigCheck />
-      <div className="container mx-auto px-4 py-8">
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className="text-4xl font-bold mb-2">My Wine Cellar</h1>
-            <p className="text-muted-foreground">
-              Welcome back, {user.email}
-            </p>
-            {wines.length > 0 && (
-              <p className="text-sm text-muted-foreground mt-1">
-                {activeWines.length} {activeWines.length === 1 ? "wine" : "wines"} in cellar
-                {ranOutWines.length > 0 && ` • ${ranOutWines.length} ran out`}
-                {activeWines.length > 0 && ` • ${activeWines.reduce((sum, wine) => sum + (wine.quantity || 0), 0)} total bottles`}
-              </p>
-            )}
-          </div>
-          <div className="flex gap-2">
-            <Link href="/upload">
-              <Button>
-                <Plus className="h-4 w-4 mr-2" />
-                Add Wine
+      
+      {/* Header */}
+      <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-lg border-b border-border/50">
+        <div className="container mx-auto px-4 py-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-bold font-serif">My Cellar</h1>
+              {wines.length > 0 && (
+                <p className="text-sm text-muted-foreground">
+                  {activeWines.length} {activeWines.length === 1 ? "wine" : "wines"} • {activeWines.reduce((sum, wine) => sum + (wine.quantity || 0), 0)} bottles
+                </p>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <Link href="/upload" className="md:hidden">
+                <Button size="icon" variant="ghost" className="rounded-full w-10 h-10">
+                  <Plus className="h-5 w-5" />
+                </Button>
+              </Link>
+              <Link href="/upload" className="hidden md:flex">
+                <Button className="rounded-full">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Wine
+                </Button>
+              </Link>
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                onClick={signOut}
+                className="rounded-full w-10 h-10"
+              >
+                <LogOut className="h-5 w-5" />
               </Button>
-            </Link>
-            <Link href="/pairings">
-              <Button variant="outline">
-                <WineIcon className="h-4 w-4 mr-2" />
-                Pairings
-              </Button>
-            </Link>
-            <Button variant="ghost" onClick={signOut}>
-              Sign Out
-            </Button>
+            </div>
           </div>
         </div>
+      </header>
 
+      <main className="container mx-auto px-4 py-6 page-container">
         {loadingWines ? (
-          <div className="text-center py-12">
+          <div className="text-center py-16">
+            <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-primary/10 flex items-center justify-center animate-pulse">
+              <WineIcon className="h-6 w-6 text-primary" />
+            </div>
             <p className="text-muted-foreground">Loading your wines...</p>
           </div>
         ) : wines.length === 0 ? (
-          <Card>
-            <CardContent className="py-12 text-center">
-              <WineIcon className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
-              <h3 className="text-xl font-semibold mb-2">Your cellar is empty</h3>
-              <p className="text-muted-foreground mb-4">
-                Start building your collection by adding your first wine!
-              </p>
-              <Link href="/upload">
-                <Button>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Your First Wine
-                </Button>
-              </Link>
-            </CardContent>
-          </Card>
+          <div className="empty-state">
+            <div className="empty-state-icon">
+              <WineIcon className="w-full h-full" />
+            </div>
+            <h3 className="empty-state-title">Your cellar is empty</h3>
+            <p className="empty-state-text">
+              Start building your collection by scanning a wine label
+            </p>
+            <Link href="/upload">
+              <Button className="rounded-full btn-wine">
+                <Camera className="h-4 w-4 mr-2" />
+                Scan Your First Wine
+              </Button>
+            </Link>
+          </div>
         ) : (
-          <>
+          <div className="space-y-8">
+            {/* Recent Scans Section */}
+            {recentWines.length > 0 && (
+              <section className="animate-fade-in-up">
+                <div className="section-header">
+                  <h2 className="section-title">New Scans</h2>
+                  <button className="see-all-link flex items-center gap-1">
+                    See All <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+                <div className="space-y-3">
+                  {recentWines.map((wine) => (
+                    <div
+                      key={wine.id}
+                      className="wine-list-item"
+                      onClick={() => handleEdit(wine)}
+                    >
+                      <div className="wine-list-thumbnail">
+                        {wine.label_image_url ? (
+                          <Image
+                            src={wine.label_image_url}
+                            alt={wine.name}
+                            width={48}
+                            height={64}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center bg-muted">
+                            <WineIcon className="w-6 h-6 text-muted-foreground" />
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium truncate">{wine.name}</p>
+                        <p className="text-sm text-muted-foreground truncate">
+                          {wine.vintage && `${wine.vintage} • `}
+                          {wine.region || wine.country || "Unknown region"}
+                        </p>
+                      </div>
+                      {wine.score !== null && wine.score !== undefined && (
+                        <div className="flex items-center gap-1 text-sm">
+                          <span className="text-yellow-500">★</span>
+                          <span className="font-medium">{wine.score.toFixed(1)}</span>
+                        </div>
+                      )}
+                      <button className="see-all-link">
+                        See All
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {/* Filters */}
             <WineFilters 
               wines={wines} 
               onFilterChange={setFilteredWines} 
@@ -245,9 +334,14 @@ export default function Home() {
             
             {/* Active Wines Section */}
             {filteredActiveWines.length > 0 && (
-              <div className="mb-8">
-                <h2 className="text-2xl font-semibold mb-4">My Cellar</h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <section className="animate-fade-in-up" style={{ animationDelay: "100ms" }}>
+                <div className="section-header">
+                  <h2 className="section-title">Good Wine</h2>
+                  <span className="text-sm text-muted-foreground">
+                    {filteredActiveWines.length} {filteredActiveWines.length === 1 ? "wine" : "wines"}
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 stagger-children">
                   {filteredActiveWines.map((wine) => (
                     <WineCard 
                       key={wine.id} 
@@ -260,14 +354,19 @@ export default function Home() {
                     />
                   ))}
                 </div>
-              </div>
+              </section>
             )}
 
             {/* Ran Out Wines Section */}
             {filteredRanOutWines.length > 0 && (
-              <div className="mt-8">
-                <h2 className="text-2xl font-semibold mb-4 text-muted-foreground">Ran Out</h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <section className="animate-fade-in-up" style={{ animationDelay: "200ms" }}>
+                <div className="section-header">
+                  <h2 className="section-title text-muted-foreground">Ran Out</h2>
+                  <span className="text-sm text-muted-foreground">
+                    {filteredRanOutWines.length} {filteredRanOutWines.length === 1 ? "wine" : "wines"}
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                   {filteredRanOutWines.map((wine) => (
                     <WineCard 
                       key={wine.id} 
@@ -280,22 +379,23 @@ export default function Home() {
                     />
                   ))}
                 </div>
-              </div>
+              </section>
             )}
 
             {/* No wines match filters */}
             {filteredWines.length === 0 && (
-              <Card>
-                <CardContent className="py-12 text-center">
-                  <p className="text-muted-foreground">
-                    No wines match your filters. Try adjusting your search criteria.
-                  </p>
-                </CardContent>
-              </Card>
+              <div className="text-center py-12">
+                <p className="text-muted-foreground">
+                  No wines match your filters. Try adjusting your search criteria.
+                </p>
+              </div>
             )}
-          </>
+          </div>
         )}
-      </div>
+      </main>
+
+      <BottomNav />
+      
       <EditWineDialog
         wine={editingWine}
         open={editDialogOpen}
@@ -305,4 +405,3 @@ export default function Home() {
     </div>
   );
 }
-

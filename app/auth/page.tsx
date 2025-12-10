@@ -6,14 +6,15 @@ import { supabase } from "@/lib/supabaseClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/components/ui/use-toast";
-import { Wine } from "lucide-react";
+import { Wine, Loader2, ArrowRight, Eye, EyeOff } from "lucide-react";
+import Link from "next/link";
 
 export default function AuthPage() {
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
@@ -32,8 +33,8 @@ export default function AuthPage() {
         if (error) throw error;
 
         toast({
-          title: "Success",
-          description: "Account created! Please check your email to verify your account.",
+          title: "Account created!",
+          description: "Please check your email to verify your account.",
         });
       } else {
         const { error } = await supabase.auth.signInWithPassword({
@@ -44,8 +45,8 @@ export default function AuthPage() {
         if (error) throw error;
 
         toast({
-          title: "Success",
-          description: "Signed in successfully!",
+          title: "Welcome back!",
+          description: "Signed in successfully.",
         });
 
         router.push("/");
@@ -62,19 +63,39 @@ export default function AuthPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-red-50 to-purple-50">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <Wine className="h-16 w-16 mx-auto mb-4 text-primary" />
-          <CardTitle className="text-3xl">Virtual Wine Cellar</CardTitle>
-          <CardDescription>
-            {isSignUp ? "Create your account" : "Sign in to your account"}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
+    <div className="min-h-screen flex flex-col bg-background">
+      {/* Header */}
+      <header className="p-4">
+        <Link href="/" className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors">
+          <Wine className="w-6 h-6 text-primary" />
+          <span className="font-serif font-semibold">My Cellar</span>
+        </Link>
+      </header>
+
+      {/* Main Content */}
+      <main className="flex-1 flex items-center justify-center px-4 py-8">
+        <div className="w-full max-w-sm">
+          {/* Logo */}
+          <div className="text-center mb-8">
+            <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-primary/10 flex items-center justify-center">
+              <Wine className="h-10 w-10 text-primary" />
+            </div>
+            <h1 className="text-3xl font-bold font-serif mb-2">
+              {isSignUp ? "Create Account" : "Welcome Back"}
+            </h1>
+            <p className="text-muted-foreground">
+              {isSignUp 
+                ? "Start managing your wine collection" 
+                : "Sign in to access your cellar"}
+            </p>
+          </div>
+
+          {/* Form */}
+          <form onSubmit={handleSubmit} className="space-y-5">
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email" className="text-sm font-medium">
+                Email
+              </Label>
               <Input
                 id="email"
                 type="email"
@@ -82,38 +103,73 @@ export default function AuthPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
+                className="h-12 rounded-xl elegant-input"
               />
             </div>
+
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                minLength={6}
-              />
+              <Label htmlFor="password" className="text-sm font-medium">
+                Password
+              </Label>
+              <div className="relative">
+                <Input
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  minLength={6}
+                  className="h-12 rounded-xl elegant-input pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  {showPassword ? (
+                    <EyeOff className="w-5 h-5" />
+                  ) : (
+                    <Eye className="w-5 h-5" />
+                  )}
+                </button>
+              </div>
             </div>
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? "Loading..." : isSignUp ? "Sign Up" : "Sign In"}
+
+            <Button 
+              type="submit" 
+              className="w-full h-12 rounded-full btn-wine text-base font-medium" 
+              disabled={loading}
+            >
+              {loading ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : (
+                <>
+                  {isSignUp ? "Create Account" : "Sign In"}
+                  <ArrowRight className="h-5 w-5 ml-2" />
+                </>
+              )}
             </Button>
           </form>
-          <div className="mt-4 text-center text-sm">
+
+          {/* Toggle Sign Up / Sign In */}
+          <div className="mt-8 text-center">
+            <p className="text-muted-foreground">
+              {isSignUp ? "Already have an account?" : "Don't have an account?"}
+            </p>
             <button
               type="button"
               onClick={() => setIsSignUp(!isSignUp)}
-              className="text-primary hover:underline"
+              className="mt-2 text-primary font-medium hover:underline"
             >
-              {isSignUp
-                ? "Already have an account? Sign in"
-                : "Don't have an account? Sign up"}
+              {isSignUp ? "Sign in instead" : "Create an account"}
             </button>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </main>
+
+      {/* Footer decoration */}
+      <div className="h-32 bg-gradient-to-t from-primary/5 to-transparent" />
     </div>
   );
 }
-

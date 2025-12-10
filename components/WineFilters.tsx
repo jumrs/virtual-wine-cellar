@@ -10,22 +10,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { X, Filter } from "lucide-react";
+import { X, Search, SlidersHorizontal, ChevronDown } from "lucide-react";
 import type { Wine } from "./WineCard";
+import { cn } from "@/lib/utils";
 
 // Sort wines: by country (alphabetically), then by name (alphabetically) within each country
 function sortWinesByCountryAndName(wines: Wine[]): Wine[] {
   return [...wines].sort((a, b) => {
-    // Handle wines without country - put them at the end
     const countryA = a.country || "ZZZ_No Country";
     const countryB = b.country || "ZZZ_No Country";
     
-    // First sort by country
     if (countryA !== countryB) {
       return countryA.localeCompare(countryB);
     }
     
-    // If same country, sort by name
     return (a.name || "").localeCompare(b.name || "");
   });
 }
@@ -42,6 +40,7 @@ export function WineFilters({ wines, onFilterChange }: WineFiltersProps) {
   const [selectedVintage, setSelectedVintage] = useState<string>("all");
   const [scoreSort, setScoreSort] = useState<string>("default");
   const [searchQuery, setSearchQuery] = useState("");
+  const [showFilters, setShowFilters] = useState(false);
 
   // Extract unique values for filters
   const uniqueCountries = useMemo(() => {
@@ -76,7 +75,7 @@ export function WineFilters({ wines, onFilterChange }: WineFiltersProps) {
       .map((w) => w.vintage)
       .filter((v): v is number => Boolean(v))
       .filter((v, i, arr) => arr.indexOf(v) === i)
-      .sort((a, b) => b - a); // Sort descending (newest first)
+      .sort((a, b) => b - a);
     return vintages;
   }, [wines]);
 
@@ -84,7 +83,6 @@ export function WineFilters({ wines, onFilterChange }: WineFiltersProps) {
   useEffect(() => {
     let filtered = [...wines];
 
-    // Search filter
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(
@@ -98,41 +96,34 @@ export function WineFilters({ wines, onFilterChange }: WineFiltersProps) {
       );
     }
 
-    // Country filter
     if (selectedCountry !== "all") {
       filtered = filtered.filter((wine) => wine.country === selectedCountry);
     }
 
-    // Grape filter
     if (selectedGrape !== "all") {
       filtered = filtered.filter((wine) => wine.grape === selectedGrape);
     }
 
-    // Type filter
     if (selectedType !== "all") {
       filtered = filtered.filter((wine) => wine.type === selectedType);
     }
 
-    // Vintage filter
     if (selectedVintage !== "all") {
       const vintage = parseInt(selectedVintage);
       filtered = filtered.filter((wine) => wine.vintage === vintage);
     }
 
-    // Sort filtered wines
     let sortedFiltered: Wine[];
     
     if (scoreSort === "low-to-high") {
-      // Sort by score (low to high), then by country and name
       sortedFiltered = [...filtered].sort((a, b) => {
-        const scoreA = a.score ?? -1; // Wines without score go to the end
+        const scoreA = a.score ?? -1;
         const scoreB = b.score ?? -1;
         
         if (scoreA !== scoreB) {
           return scoreA - scoreB;
         }
         
-        // If same score, sort by country and name
         const countryA = a.country || "ZZZ_No Country";
         const countryB = b.country || "ZZZ_No Country";
         if (countryA !== countryB) {
@@ -141,16 +132,14 @@ export function WineFilters({ wines, onFilterChange }: WineFiltersProps) {
         return (a.name || "").localeCompare(b.name || "");
       });
     } else if (scoreSort === "high-to-low") {
-      // Sort by score (high to low), then by country and name
       sortedFiltered = [...filtered].sort((a, b) => {
-        const scoreA = a.score ?? -1; // Wines without score go to the end
+        const scoreA = a.score ?? -1;
         const scoreB = b.score ?? -1;
         
         if (scoreA !== scoreB) {
           return scoreB - scoreA;
         }
         
-        // If same score, sort by country and name
         const countryA = a.country || "ZZZ_No Country";
         const countryB = b.country || "ZZZ_No Country";
         if (countryA !== countryB) {
@@ -159,7 +148,6 @@ export function WineFilters({ wines, onFilterChange }: WineFiltersProps) {
         return (a.name || "").localeCompare(b.name || "");
       });
     } else {
-      // Default: Sort by country (alphabetically), then by name (alphabetically) within each country
       sortedFiltered = sortWinesByCountryAndName(filtered);
     }
     
@@ -174,6 +162,14 @@ export function WineFilters({ wines, onFilterChange }: WineFiltersProps) {
     scoreSort !== "default" ||
     searchQuery !== "";
 
+  const activeFilterCount = [
+    selectedCountry !== "all",
+    selectedGrape !== "all",
+    selectedType !== "all",
+    selectedVintage !== "all",
+    scoreSort !== "default",
+  ].filter(Boolean).length;
+
   const clearFilters = () => {
     setSelectedCountry("all");
     setSelectedGrape("all");
@@ -184,111 +180,146 @@ export function WineFilters({ wines, onFilterChange }: WineFiltersProps) {
   };
 
   return (
-    <div className="space-y-4 mb-6">
-      <div className="flex items-center gap-2">
-        <Filter className="h-5 w-5 text-muted-foreground" />
-        <h2 className="text-lg font-semibold">Filters</h2>
-        {hasActiveFilters && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={clearFilters}
-            className="ml-auto"
-          >
-            <X className="h-4 w-4 mr-1" />
-            Clear
-          </Button>
-        )}
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
-        {/* Search */}
-        <div className="lg:col-span-2">
+    <div className="space-y-4">
+      {/* Search Bar */}
+      <div className="flex gap-2">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
             placeholder="Search wines..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full"
+            className="pl-10 elegant-input h-11"
           />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery("")}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
         </div>
-
-        {/* Country Filter */}
-        <Select value={selectedCountry} onValueChange={setSelectedCountry}>
-          <SelectTrigger>
-            <SelectValue placeholder="All Countries" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Countries</SelectItem>
-            {uniqueCountries.map((country) => (
-              <SelectItem key={country} value={country}>
-                {country}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        {/* Type Filter */}
-        <Select value={selectedType} onValueChange={setSelectedType}>
-          <SelectTrigger>
-            <SelectValue placeholder="All Types" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Types</SelectItem>
-            {uniqueTypes.map((type) => (
-              <SelectItem key={type} value={type}>
-                {type}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        {/* Grape Filter */}
-        <Select value={selectedGrape} onValueChange={setSelectedGrape}>
-          <SelectTrigger>
-            <SelectValue placeholder="All Grapes" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Grapes</SelectItem>
-            {uniqueGrapes.map((grape) => (
-              <SelectItem key={grape} value={grape}>
-                {grape}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        {/* Score Sort Filter */}
-        <Select value={scoreSort} onValueChange={setScoreSort}>
-          <SelectTrigger>
-            <SelectValue placeholder="Sort by Score" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="default">Default Sort</SelectItem>
-            <SelectItem value="low-to-high">Score: Low to High</SelectItem>
-            <SelectItem value="high-to-low">Score: High to Low</SelectItem>
-          </SelectContent>
-        </Select>
+        <Button
+          variant="outline"
+          className={cn(
+            "h-11 px-4 rounded-xl relative",
+            hasActiveFilters && "border-primary text-primary"
+          )}
+          onClick={() => setShowFilters(!showFilters)}
+        >
+          <SlidersHorizontal className="w-4 h-4 mr-2" />
+          Filters
+          {activeFilterCount > 0 && (
+            <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center">
+              {activeFilterCount}
+            </span>
+          )}
+          <ChevronDown className={cn(
+            "w-4 h-4 ml-2 transition-transform",
+            showFilters && "rotate-180"
+          )} />
+        </Button>
       </div>
 
-      {/* Vintage Filter */}
-      {uniqueVintages.length > 0 && (
-        <div>
-          <Select value={selectedVintage} onValueChange={setSelectedVintage}>
-            <SelectTrigger className="w-full md:w-[200px]">
-              <SelectValue placeholder="All Vintages" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Vintages</SelectItem>
-              {uniqueVintages.map((vintage) => (
-                <SelectItem key={vintage} value={vintage.toString()}>
-                  {vintage}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+      {/* Collapsible Filters */}
+      <div className={cn(
+        "grid gap-3 transition-all duration-300 overflow-hidden",
+        showFilters ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
+      )}>
+        <div className="min-h-0">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+            {/* Country Filter */}
+            <Select value={selectedCountry} onValueChange={setSelectedCountry}>
+              <SelectTrigger className="h-10 rounded-xl bg-muted/50 border-0">
+                <SelectValue placeholder="Country" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Countries</SelectItem>
+                {uniqueCountries.map((country) => (
+                  <SelectItem key={country} value={country}>
+                    {country}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {/* Type Filter */}
+            <Select value={selectedType} onValueChange={setSelectedType}>
+              <SelectTrigger className="h-10 rounded-xl bg-muted/50 border-0">
+                <SelectValue placeholder="Type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Types</SelectItem>
+                {uniqueTypes.map((type) => (
+                  <SelectItem key={type} value={type}>
+                    {type}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {/* Grape Filter */}
+            <Select value={selectedGrape} onValueChange={setSelectedGrape}>
+              <SelectTrigger className="h-10 rounded-xl bg-muted/50 border-0">
+                <SelectValue placeholder="Grape" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Grapes</SelectItem>
+                {uniqueGrapes.map((grape) => (
+                  <SelectItem key={grape} value={grape}>
+                    {grape}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {/* Vintage Filter */}
+            {uniqueVintages.length > 0 && (
+              <Select value={selectedVintage} onValueChange={setSelectedVintage}>
+                <SelectTrigger className="h-10 rounded-xl bg-muted/50 border-0">
+                  <SelectValue placeholder="Vintage" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Vintages</SelectItem>
+                  {uniqueVintages.map((vintage) => (
+                    <SelectItem key={vintage} value={vintage.toString()}>
+                      {vintage}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+
+            {/* Score Sort */}
+            <Select value={scoreSort} onValueChange={setScoreSort}>
+              <SelectTrigger className="h-10 rounded-xl bg-muted/50 border-0">
+                <SelectValue placeholder="Sort" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="default">Default</SelectItem>
+                <SelectItem value="high-to-low">Rating: High → Low</SelectItem>
+                <SelectItem value="low-to-high">Rating: Low → High</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Clear Filters Button */}
+          {hasActiveFilters && (
+            <div className="mt-3 flex justify-end">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={clearFilters}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                <X className="w-4 h-4 mr-1" />
+                Clear all filters
+              </Button>
+            </div>
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
 }
-
