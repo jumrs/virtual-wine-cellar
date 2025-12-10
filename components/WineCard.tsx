@@ -2,9 +2,8 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Wine, Package, Star, ImageIcon, Plus, Minus } from "lucide-react";
+import { Wine, Package, Star, Plus, Minus } from "lucide-react";
 import Image from "next/image";
-import { EditWineImageDialog } from "@/components/EditWineImageDialog";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/lib/supabaseClient";
 import { cn } from "@/lib/utils";
@@ -82,7 +81,6 @@ function StarRating({ score }: { score: number }) {
 }
 
 export function WineCard({ wine, onDelete, onEdit, onImageUpdate, onQuantityUpdate, isRanOut = false }: WineCardProps) {
-  const [imageEditOpen, setImageEditOpen] = useState(false);
   const [updatingQuantity, setUpdatingQuantity] = useState(false);
   const { toast } = useToast();
 
@@ -153,20 +151,6 @@ export function WineCard({ wine, onDelete, onEdit, onImageUpdate, onQuantityUpda
               <Wine className="w-12 h-12 text-muted-foreground/40" />
             </div>
           )}
-          
-          {/* Image Edit Button - appears on hover */}
-          <Button
-            variant="secondary"
-            size="sm"
-            className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity rounded-full h-8 px-3 text-xs"
-            onClick={(e) => {
-              e.stopPropagation();
-              setImageEditOpen(true);
-            }}
-          >
-            <ImageIcon className="h-3 w-3 mr-1" />
-            Edit
-          </Button>
 
           {/* Wine Type Badge */}
           {wine.type && (
@@ -232,13 +216,6 @@ export function WineCard({ wine, onDelete, onEdit, onImageUpdate, onQuantityUpda
           </div>
         </div>
       </div>
-
-      <EditWineImageDialog
-        wine={wine}
-        open={imageEditOpen}
-        onOpenChange={setImageEditOpen}
-        onImageUpdated={onImageUpdate}
-      />
     </>
   );
 }

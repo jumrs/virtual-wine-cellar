@@ -403,6 +403,7 @@ export default function Home() {
         open={editDialogOpen}
         onOpenChange={setEditDialogOpen}
         onSave={handleSaveEdit}
+        onImageUpdate={fetchWines}
       />
     </div>
   );

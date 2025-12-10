@@ -248,6 +248,7 @@ export default function SearchPage() {
         open={editDialogOpen}
         onOpenChange={setEditDialogOpen}
         onSave={handleSaveEdit}
+        onImageUpdate={fetchWines}
       />
     </div>
   );

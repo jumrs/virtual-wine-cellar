@@ -10,28 +10,33 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Loader2, Save, Trash2, X, Star, MapPin, Wine, Calendar, Grape, Globe, Package, Plus, Minus } from "lucide-react";
+import { Loader2, Save, Trash2, X, Star, MapPin, Wine, Calendar, Grape, Globe, Package, Plus, Minus, ImageIcon } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/lib/supabaseClient";
 import type { Wine as WineType } from "./WineCard";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
+import { EditWineImageDialog } from "@/components/EditWineImageDialog";
 
 interface EditWineDialogProps {
   wine: WineType | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSave: () => void;
+  onImageUpdate?: () => void;
 }
 
 // Star rating component for editing with decimal support
 function StarRatingInput({ value, onChange }: { value: number; onChange: (v: number) => void }) {
-  const [inputValue, setInputValue] = useState(value.toString());
+  const [inputValue, setInputValue] = useState(value > 0 ? value.toFixed(1) : "");
+  const [isFocused, setIsFocused] = useState(false);
   
-  // Update input when value prop changes
+  // Update input when value prop changes, but only if not currently focused
   useEffect(() => {
-    setInputValue(value > 0 ? value.toFixed(1) : "");
-  }, [value]);
+    if (!isFocused) {
+      setInputValue(value > 0 ? value.toFixed(1) : "");
+    }
+  }, [value, isFocused]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = e.target.value;
@@ -45,7 +50,12 @@ function StarRatingInput({ value, onChange }: { value: number; onChange: (v: num
     }
   };
 
+  const handleInputFocus = () => {
+    setIsFocused(true);
+  };
+
   const handleInputBlur = () => {
+    setIsFocused(false);
     const numValue = parseFloat(inputValue);
     if (isNaN(numValue) || numValue < 0) {
       setInputValue("0.0");
@@ -122,6 +132,7 @@ function StarRatingInput({ value, onChange }: { value: number; onChange: (v: num
           max="5"
           value={inputValue}
           onChange={handleInputChange}
+          onFocus={handleInputFocus}
           onBlur={handleInputBlur}
           placeholder="0.0"
           className="w-24 h-10 elegant-input text-center"
@@ -132,7 +143,7 @@ function StarRatingInput({ value, onChange }: { value: number; onChange: (v: num
   );
 }
 
-export function EditWineDialog({ wine, open, onOpenChange, onSave }: EditWineDialogProps) {
+export function EditWineDialog({ wine, open, onOpenChange, onSave, onImageUpdate }: EditWineDialogProps) {
   const [formData, setFormData] = useState({
     name: "",
     type: "",
@@ -146,6 +157,7 @@ export function EditWineDialog({ wine, open, onOpenChange, onSave }: EditWineDia
   });
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [imageEditOpen, setImageEditOpen] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -288,6 +300,19 @@ export function EditWineDialog({ wine, open, onOpenChange, onSave }: EditWineDia
             >
               <X className="w-4 h-4" />
             </Button>
+            {/* Edit Image Button */}
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                setImageEditOpen(true);
+              }}
+              className="absolute bottom-3 right-3 rounded-full h-9 px-3 text-xs bg-background/90 backdrop-blur hover:bg-background"
+            >
+              <ImageIcon className="h-3.5 w-3.5 mr-1.5" />
+              Edit Photo
+            </Button>
           </div>
         ) : (
           <DialogHeader className="p-6 pb-0">
@@ -302,6 +327,21 @@ export function EditWineDialog({ wine, open, onOpenChange, onSave }: EditWineDia
                 <X className="w-4 h-4" />
               </Button>
             </div>
+            {/* Add Photo Button when no image */}
+            {wine && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setImageEditOpen(true);
+                }}
+                className="mt-4 rounded-full h-9 px-3 text-xs"
+              >
+                <ImageIcon className="h-3.5 w-3.5 mr-1.5" />
+                Add Photo
+              </Button>
+            )}
           </DialogHeader>
         )}
 
@@ -506,6 +546,19 @@ export function EditWineDialog({ wine, open, onOpenChange, onSave }: EditWineDia
           </div>
         </form>
       </DialogContent>
+
+      {/* Edit Wine Image Dialog */}
+      {wine && (
+        <EditWineImageDialog
+          wine={wine}
+          open={imageEditOpen}
+          onOpenChange={setImageEditOpen}
+          onImageUpdated={() => {
+            onImageUpdate?.();
+            onSave(); // Refresh the wine data
+          }}
+        />
+      )}
     </Dialog>
   );
 }
