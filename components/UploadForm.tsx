@@ -9,6 +9,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/lib/supabaseClient";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
+import { DuplicateWineDialog } from "@/components/DuplicateWineDialog";
 
 interface ExtractedWineData {
   name: string;
@@ -40,6 +41,11 @@ export function UploadForm() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const winesRef = useRef<WineWithFile[]>([]);
   const { toast } = useToast();
+  
+  // Duplicate detection state
+  const [duplicateDialogOpen, setDuplicateDialogOpen] = useState(false);
+  const [pendingWineIndex, setPendingWineIndex] = useState<number | null>(null);
+  const [duplicateWines, setDuplicateWines] = useState<any[]>([]);
   
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -176,9 +182,65 @@ export function UploadForm() {
     }
   };
 
-  const saveWine = async (index: number) => {
+  const checkForDuplicates = async (wine: WineWithFile, index: number): Promise<boolean> => {
+    if (!wine.extractedData) return false;
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const accessToken = session?.access_token;
+
+      if (!accessToken) {
+        throw new Error("Not authenticated");
+      }
+
+      const response = await fetch("/api/wines/check-duplicate", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({
+          name: wine.extractedData.name,
+          vintage: wine.extractedData.vintage,
+          region: wine.extractedData.region,
+          country: wine.extractedData.country,
+        }),
+      });
+
+      if (!response.ok) {
+        // If check fails, proceed with save (don't block user)
+        return false;
+      }
+
+      const data = await response.json();
+      
+      if (data.isDuplicate && data.duplicates.length > 0) {
+        setDuplicateWines(data.duplicates);
+        setPendingWineIndex(index);
+        setDuplicateDialogOpen(true);
+        return true; // Duplicate found, wait for user confirmation
+      }
+
+      return false; // No duplicate, proceed with save
+    } catch (error) {
+      console.error("Error checking for duplicates:", error);
+      // If check fails, proceed with save (don't block user)
+      return false;
+    }
+  };
+
+  const performSave = async (index: number, skipDuplicateCheck = false) => {
     const wine = wines[index];
     if (!wine.extractedData || wine.saving || wine.saved) return;
+
+    // Check for duplicates unless explicitly skipped
+    if (!skipDuplicateCheck) {
+      const hasDuplicate = await checkForDuplicates(wine, index);
+      if (hasDuplicate) {
+        // Wait for user confirmation via dialog
+        return;
+      }
+    }
 
     setWines((prevWines) => {
       const updated = prevWines.map((w, i) => 
@@ -247,6 +309,25 @@ export function UploadForm() {
         variant: "destructive",
       });
     }
+  };
+
+  const saveWine = async (index: number) => {
+    await performSave(index, false);
+  };
+
+  const handleDuplicateConfirm = () => {
+    if (pendingWineIndex !== null) {
+      performSave(pendingWineIndex, true); // Skip duplicate check since user confirmed
+      setDuplicateDialogOpen(false);
+      setPendingWineIndex(null);
+      setDuplicateWines([]);
+    }
+  };
+
+  const handleDuplicateCancel = () => {
+    setDuplicateDialogOpen(false);
+    setPendingWineIndex(null);
+    setDuplicateWines([]);
   };
 
   const saveAll = async () => {
@@ -570,6 +651,18 @@ export function UploadForm() {
             ))}
           </div>
         </>
+      )}
+
+      {/* Duplicate Wine Dialog */}
+      {pendingWineIndex !== null && wines[pendingWineIndex] && (
+        <DuplicateWineDialog
+          open={duplicateDialogOpen}
+          onOpenChange={setDuplicateDialogOpen}
+          duplicateWines={duplicateWines}
+          newWineName={wines[pendingWineIndex].extractedData?.name || ""}
+          onConfirm={handleDuplicateConfirm}
+          onCancel={handleDuplicateCancel}
+        />
       )}
     </div>
   );
