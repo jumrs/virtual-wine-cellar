@@ -439,45 +439,47 @@ export function UploadForm() {
       ) : (
         <>
           {/* Batch Actions */}
-          <div className="flex gap-3">
-            <Button
-              onClick={analyzeAll}
-              disabled={analyzingAll || allAnalyzed}
-              className="flex-1 h-12 rounded-xl"
-              variant={allAnalyzed ? "secondary" : "default"}
-            >
-              {analyzingAll ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Analyzing...
-                </>
-              ) : (
-                <>
-                  <Sparkles className="h-4 w-4 mr-2" />
-                  Analyze All
-                </>
-              )}
-            </Button>
-            {hasUnsavedWines && (
+          {wines.length > 1 && (
+            <div className="flex gap-3">
               <Button
-                onClick={saveAll}
-                disabled={savingAll || !hasUnsavedWines}
-                className="flex-1 h-12 rounded-xl btn-wine"
+                onClick={analyzeAll}
+                disabled={analyzingAll || allAnalyzed}
+                className="flex-1 h-12 rounded-xl"
+                variant={allAnalyzed ? "secondary" : "default"}
               >
-                {savingAll ? (
+                {analyzingAll ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Saving...
+                    Analyzing...
                   </>
                 ) : (
                   <>
-                    <Check className="h-4 w-4 mr-2" />
-                    Save All
+                    <Sparkles className="h-4 w-4 mr-2" />
+                    Analyze All
                   </>
                 )}
               </Button>
-            )}
-          </div>
+              {hasUnsavedWines && (
+                <Button
+                  onClick={saveAll}
+                  disabled={savingAll || !hasUnsavedWines}
+                  className="flex-1 h-12 rounded-xl btn-wine"
+                >
+                  {savingAll ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Check className="h-4 w-4 mr-2" />
+                      Save All
+                    </>
+                  )}
+                </Button>
+              )}
+            </div>
+          )}
 
           {/* Add more */}
           {wines.length < MAX_FILES && (
