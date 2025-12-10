@@ -95,6 +95,8 @@
   body {
     @apply bg-background text-foreground antialiased;
     font-family: 'DM Sans', system-ui, sans-serif;
+    /* Ensure body can scroll on mobile */
+    overflow-x: hidden;
   }
   
   h1, h2, h3, h4, h5, h6 {
@@ -155,8 +157,10 @@
   
   /* Bottom navigation */
   .bottom-nav {
-    @apply fixed bottom-0 left-0 right-0 bg-white border-t border-border/50 px-4 py-2 z-50;
-    padding-bottom: env(safe-area-inset-bottom, 0.5rem);
+    @apply fixed bottom-0 left-0 right-0 bg-white border-t border-border/50 px-4 py-3 z-50;
+    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 0.75rem);
+    min-height: 70px;
+    box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.05);
   }
   
   .bottom-nav-item {
@@ -240,9 +244,37 @@
     @apply opacity-40 cursor-not-allowed;
   }
   
+  /* Touch-friendly buttons for mobile */
+  .touch-manipulation {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+  
+  /* Mobile quantity controls */
+  .quantity-controls {
+    @apply flex items-center gap-3;
+  }
+  
+  .quantity-control-btn {
+    @apply h-12 w-12 rounded-xl border-2 flex-shrink-0 touch-manipulation flex items-center justify-center;
+    min-width: 48px;
+    min-height: 48px;
+  }
+  
+  .quantity-control-btn:active {
+    @apply scale-95 bg-muted;
+  }
+  
   /* Page container with bottom nav spacing */
   .page-container {
-    @apply pb-24 md:pb-8;
+    /* Mobile: extra padding for bottom nav (70px nav + 20px spacing + safe area) */
+    padding-bottom: calc(5.5rem + env(safe-area-inset-bottom, 0px));
+  }
+  
+  @media (min-width: 768px) {
+    .page-container {
+      padding-bottom: 2rem;
+    }
   }
   
   /* Fade in animation */

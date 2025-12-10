@@ -10,7 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Loader2, Save, Trash2, X, Star, MapPin, Wine, Calendar, Grape, Globe, Package } from "lucide-react";
+import { Loader2, Save, Trash2, X, Star, MapPin, Wine, Calendar, Grape, Globe, Package, Plus, Minus } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/lib/supabaseClient";
 import type { Wine as WineType } from "./WineCard";
@@ -313,36 +313,67 @@ export function EditWineDialog({ wine, open, onOpenChange, onSave }: EditWineDia
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="edit-country" className="text-sm font-medium flex items-center gap-1">
-                <Globe className="w-3 h-3 text-muted-foreground" />
-                Country
-              </Label>
-              <Input
-                id="edit-country"
-                value={formData.country}
-                onChange={(e) => setFormData({ ...formData, country: e.target.value })}
-                placeholder="e.g., France"
-                className="elegant-input h-10"
-              />
-            </div>
+          <div className="space-y-2">
+            <Label htmlFor="edit-country" className="text-sm font-medium flex items-center gap-1">
+              <Globe className="w-3 h-3 text-muted-foreground" />
+              Country
+            </Label>
+            <Input
+              id="edit-country"
+              value={formData.country}
+              onChange={(e) => setFormData({ ...formData, country: e.target.value })}
+              placeholder="e.g., France"
+              className="elegant-input h-10"
+            />
+          </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="edit-quantity" className="text-sm font-medium flex items-center gap-1">
-                <Package className="w-3 h-3 text-muted-foreground" />
-                Bottles
-              </Label>
+          {/* Quantity Section - Mobile Friendly */}
+          <div className="space-y-2">
+            <Label htmlFor="edit-quantity" className="text-sm font-medium flex items-center gap-1">
+              <Package className="w-3 h-3 text-muted-foreground" />
+              Bottles
+            </Label>
+            <div className="quantity-controls">
+              {/* Decrease Button */}
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setFormData({ ...formData, quantity: Math.max(0, formData.quantity - 1) })}
+                className="quantity-control-btn"
+                disabled={formData.quantity <= 0}
+              >
+                <Minus className="h-5 w-5" />
+              </Button>
+              
+              {/* Quantity Input */}
               <Input
                 id="edit-quantity"
                 type="number"
                 min="0"
                 value={formData.quantity}
                 onChange={(e) => setFormData({ ...formData, quantity: Math.max(0, parseInt(e.target.value) || 0) })}
+                onBlur={(e) => {
+                  const value = parseInt(e.target.value) || 0;
+                  setFormData({ ...formData, quantity: Math.max(0, value) });
+                }}
                 required
-                className="elegant-input h-10"
+                className="elegant-input h-12 text-center text-lg font-semibold flex-1 touch-manipulation"
+                inputMode="numeric"
               />
+              
+              {/* Increase Button */}
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setFormData({ ...formData, quantity: formData.quantity + 1 })}
+                className="quantity-control-btn"
+              >
+                <Plus className="h-5 w-5" />
+              </Button>
             </div>
+            <p className="text-xs text-muted-foreground text-center">
+              Tap buttons to adjust or type directly
+            </p>
           </div>
 
           {/* Notes */}
