@@ -282,7 +282,7 @@ export default function Home() {
             {recentWines.length > 0 && (
               <section className="animate-fade-in-up">
                 <div className="section-header">
-                  <h2 className="section-title">New Scans</h2>
+                  <h2 className="section-title">Recent Scans</h2>
                   <button className="see-all-link flex items-center gap-1">
                     See All <ChevronRight className="w-4 h-4" />
                   </button>

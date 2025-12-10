@@ -42,7 +42,8 @@ const response = await openai.chat.completions.create({
   2. Extract all visible information.
   3. For any field that is missing, unclear, or not visible, search the internet using the detected wine name and producer.
   4. Verify information with reputable sources (producer website, major wine retailers, wine databases).
-  5. If a field cannot be verified, return null instead of guessing.
+  5. Search for tasting notes, flavor profiles, and additional wine information from reputable sources.
+  6. If a field cannot be verified, return null instead of guessing.
   
   Return ONLY valid JSON with the following structure:
   
@@ -53,7 +54,7 @@ const response = await openai.chat.completions.create({
     "region": "region/appellation if visible or found online (e.g. Bordeaux, Napa Valley)",
     "country": "country if visible or found online (e.g. France, Italy, USA)",
     "vintage": year as number or null,
-    "notes": "additional relevant information such as producer, cuvée, classification, label details"
+    "notes": "Include any tasting notes, flavor profiles, producer information, cuvée details, classification, label details, and any other relevant additional information found from reputable sources. Combine all this information into a comprehensive notes field."
   }
   
   Rules:
@@ -61,7 +62,8 @@ const response = await openai.chat.completions.create({
   - Do NOT output anything outside the JSON.
   - Do NOT write words starting with lowercase letters.
   - Prioritize information that is visible on the label before online results.
-  - If conflicting online sources appear, choose the most authoritative one.`,
+  - If conflicting online sources appear, choose the most authoritative one.
+  - For the notes field, include tasting notes, flavor profiles, and any other relevant wine information you find.`,
           },
           {
             type: "image_url",
