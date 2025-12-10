@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useAuth } from "@/components/AuthProvider";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { 
   Wine as WineIcon, 
   ArrowLeft, 
@@ -14,20 +16,33 @@ import {
   Star,
   Settings,
   HelpCircle,
-  ChevronRight
+  ChevronRight,
+  Camera,
+  Save,
+  Loader2,
+  X
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/lib/supabaseClient";
 import { BottomNav } from "@/components/BottomNav";
+import Image from "next/image";
 import type { Wine } from "@/components/WineCard";
 
 export default function ProfilePage() {
-  const { user, loading, signOut } = useAuth();
+  const { user, profile, loading, signOut, refreshProfile } = useAuth();
   const router = useRouter();
   const [wines, setWines] = useState<Wine[]>([]);
   const [loadingWines, setLoadingWines] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [formData, setFormData] = useState({
+    username: "",
+    name: "",
+  });
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -41,6 +56,15 @@ export default function ProfilePage() {
       fetchWines();
     }
   }, [user]);
+
+  useEffect(() => {
+    if (profile) {
+      setFormData({
+        username: profile.username || "",
+        name: profile.name || "",
+      });
+    }
+  }, [profile]);
 
   const fetchWines = async () => {
     if (!user) return;
@@ -66,6 +90,100 @@ export default function ProfilePage() {
       // Silent fail
     } finally {
       setLoadingWines(false);
+    }
+  };
+
+  const handleSave = async () => {
+    if (!user) return;
+
+    setSaving(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const accessToken = session?.access_token;
+
+      if (!accessToken) {
+        throw new Error("Not authenticated");
+      }
+
+      const response = await fetch("/api/profile", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({
+          username: formData.username.trim() || null,
+          name: formData.name.trim() || null,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to update profile");
+      }
+
+      await refreshProfile();
+      setEditing(false);
+      toast({
+        title: "Profile updated",
+        description: "Your profile has been saved successfully.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update profile.",
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+
+    setUploadingAvatar(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const accessToken = session?.access_token;
+
+      if (!accessToken) {
+        throw new Error("Not authenticated");
+      }
+
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const response = await fetch("/api/profile/avatar", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to upload avatar");
+      }
+
+      await refreshProfile();
+      toast({
+        title: "Avatar updated",
+        description: "Your profile picture has been updated.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to upload avatar.",
+        variant: "destructive",
+      });
+    } finally {
+      setUploadingAvatar(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
     }
   };
 
@@ -103,6 +221,8 @@ export default function ProfilePage() {
     router.push("/");
   };
 
+  const displayName = profile?.name || profile?.username || (user.email?.split("@")[0] || "User");
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -115,6 +235,41 @@ export default function ProfilePage() {
               </Button>
             </Link>
             <h1 className="text-xl font-semibold font-serif">Profile</h1>
+            {editing && (
+              <div className="ml-auto flex gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setEditing(false);
+                    if (profile) {
+                      setFormData({
+                        username: profile.username || "",
+                        name: profile.name || "",
+                      });
+                    }
+                  }}
+                  disabled={saving}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={handleSave}
+                  disabled={saving}
+                  className="rounded-full"
+                >
+                  {saving ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <>
+                      <Save className="h-4 w-4 mr-1" />
+                      Save
+                    </>
+                  )}
+                </Button>
+              </div>
+            )}
           </div>
         </div>
       </header>
@@ -123,15 +278,90 @@ export default function ProfilePage() {
         {/* Profile Card */}
         <div className="wine-card p-6 mb-6">
           <div className="flex items-center gap-4 mb-6">
-            <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
-              <User className="w-8 h-8 text-primary" />
+            {/* Avatar */}
+            <div className="relative">
+              {profile?.avatar_url ? (
+                <div className="w-20 h-20 rounded-full overflow-hidden border-2 border-border">
+                  <Image
+                    src={profile.avatar_url}
+                    alt={displayName}
+                    width={80}
+                    height={80}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              ) : (
+                <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center border-2 border-border">
+                  <User className="w-10 h-10 text-primary" />
+                </div>
+              )}
+              {editing && (
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploadingAvatar}
+                  className="absolute bottom-0 right-0 w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center shadow-lg hover:bg-primary/90 transition-colors"
+                >
+                  {uploadingAvatar ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Camera className="w-4 h-4" />
+                  )}
+                </button>
+              )}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleAvatarUpload}
+                className="hidden"
+              />
             </div>
-            <div>
-              <h2 className="font-semibold font-serif text-lg">Wine Enthusiast</h2>
-              <p className="text-sm text-muted-foreground flex items-center gap-1">
-                <Mail className="w-3 h-3" />
-                {user.email}
-              </p>
+            <div className="flex-1">
+              {editing ? (
+                <div className="space-y-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="name" className="text-sm font-medium">Name</Label>
+                    <Input
+                      id="name"
+                      value={formData.name}
+                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                      placeholder="Your name"
+                      className="elegant-input h-10"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="username" className="text-sm font-medium">Username</Label>
+                    <Input
+                      id="username"
+                      value={formData.username}
+                      onChange={(e) => setFormData({ ...formData, username: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, "") })}
+                      placeholder="username"
+                      className="elegant-input h-10"
+                    />
+                    <p className="text-xs text-muted-foreground">3-20 characters, letters, numbers, and underscores only</p>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <h2 className="font-semibold font-serif text-lg">{displayName}</h2>
+                  <p className="text-sm text-muted-foreground flex items-center gap-1">
+                    <Mail className="w-3 h-3" />
+                    {user.email}
+                  </p>
+                  {profile?.username && (
+                    <p className="text-sm text-muted-foreground mt-1">@{profile.username}</p>
+                  )}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setEditing(true)}
+                    className="mt-3 rounded-xl"
+                  >
+                    <Settings className="w-4 h-4 mr-2" />
+                    Edit Profile
+                  </Button>
+                </>
+              )}
             </div>
           </div>
 
@@ -205,4 +435,3 @@ export default function ProfilePage() {
     </div>
   );
 }
-

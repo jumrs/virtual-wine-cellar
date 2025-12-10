@@ -29,7 +29,7 @@ function sortWinesByCountryAndName(wines: Wine[]): Wine[] {
 }
 
 export default function Home() {
-  const { user, loading, signOut } = useAuth();
+  const { user, profile, loading, signOut } = useAuth();
   const [wines, setWines] = useState<Wine[]>([]);
   const [filteredWines, setFilteredWines] = useState<Wine[]>([]);
   const [loadingWines, setLoadingWines] = useState(false);
@@ -215,7 +215,12 @@ export default function Home() {
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold font-serif">My Cellar</h1>
+              <h1 className="text-2xl font-bold font-serif">
+                {(() => {
+                  const displayName = profile?.name || profile?.username || (user.email?.split("@")[0] || "My");
+                  return displayName === "My" ? "My Cellar" : `${displayName}'s Cellar`;
+                })()}
+              </h1>
               {wines.length > 0 && (
                 <p className="text-sm text-muted-foreground">
                   {activeWines.length} {activeWines.length === 1 ? "wine" : "wines"} • {activeWines.reduce((sum, wine) => sum + (wine.quantity || 0), 0)} bottles
