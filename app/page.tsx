@@ -317,9 +317,6 @@ export default function Home() {
                           <span className="font-medium">{wine.score.toFixed(1)}</span>
                         </div>
                       )}
-                      <button className="see-all-link">
-                        See All
-                      </button>
                     </div>
                   ))}
                 </div>
@@ -336,7 +333,7 @@ export default function Home() {
             {filteredActiveWines.length > 0 && (
               <section className="animate-fade-in-up" style={{ animationDelay: "100ms" }}>
                 <div className="section-header">
-                  <h2 className="section-title">Good Wine</h2>
+                  <h2 className="section-title">My Wines</h2>
                   <span className="text-sm text-muted-foreground">
                     {filteredActiveWines.length} {filteredActiveWines.length === 1 ? "wine" : "wines"}
                   </span>

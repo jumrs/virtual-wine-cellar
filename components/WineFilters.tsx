@@ -297,7 +297,7 @@ export function WineFilters({ wines, onFilterChange }: WineFiltersProps) {
                 <SelectValue placeholder="Sort" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="default">Default</SelectItem>
+                <SelectItem value="default">All Ratings</SelectItem>
                 <SelectItem value="high-to-low">Rating: High → Low</SelectItem>
                 <SelectItem value="low-to-high">Rating: Low → High</SelectItem>
               </SelectContent>

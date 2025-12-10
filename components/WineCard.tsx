@@ -44,20 +44,36 @@ function getWineTypeBadgeClass(type?: string): string {
   return "bg-muted text-muted-foreground";
 }
 
-// Star rating component
+// Star rating component with partial star support
 function StarRating({ score }: { score: number }) {
   const fullStars = Math.floor(score);
-  const hasHalfStar = score - fullStars >= 0.5;
-  const emptyStars = 5 - fullStars - (hasHalfStar ? 1 : 0);
+  const partialFill = score - fullStars;
+  const nextStarIndex = fullStars;
+  const emptyStars = 5 - fullStars - (partialFill > 0 ? 1 : 0);
 
   return (
     <div className="star-rating">
+      {/* Full stars */}
       {Array.from({ length: fullStars }).map((_, i) => (
         <Star key={`full-${i}`} className="w-3.5 h-3.5 star-filled" />
       ))}
-      {hasHalfStar && (
-        <Star className="w-3.5 h-3.5 text-yellow-400" style={{ clipPath: "inset(0 50% 0 0)" }} />
+      
+      {/* Partial star */}
+      {partialFill > 0 && (
+        <div className="relative w-3.5 h-3.5 flex-shrink-0">
+          {/* Empty star background */}
+          <Star className="w-3.5 h-3.5 star-empty absolute inset-0" />
+          {/* Partial fill */}
+          <div 
+            className="absolute inset-0 overflow-hidden"
+            style={{ width: `${partialFill * 100}%` }}
+          >
+            <Star className="w-3.5 h-3.5 star-filled" />
+          </div>
+        </div>
       )}
+      
+      {/* Empty stars */}
       {Array.from({ length: emptyStars }).map((_, i) => (
         <Star key={`empty-${i}`} className="w-3.5 h-3.5 star-empty" />
       ))}

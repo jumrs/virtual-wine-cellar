@@ -24,28 +24,110 @@ interface EditWineDialogProps {
   onSave: () => void;
 }
 
-// Star rating component for editing
+// Star rating component for editing with decimal support
 function StarRatingInput({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+  const [inputValue, setInputValue] = useState(value.toString());
+  
+  // Update input when value prop changes
+  useEffect(() => {
+    setInputValue(value > 0 ? value.toFixed(1) : "");
+  }, [value]);
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newValue = e.target.value;
+    setInputValue(newValue);
+    
+    const numValue = parseFloat(newValue);
+    if (!isNaN(numValue) && numValue >= 0 && numValue <= 5) {
+      onChange(numValue);
+    } else if (newValue === "" || newValue === ".") {
+      onChange(0);
+    }
+  };
+
+  const handleInputBlur = () => {
+    const numValue = parseFloat(inputValue);
+    if (isNaN(numValue) || numValue < 0) {
+      setInputValue("0.0");
+      onChange(0);
+    } else if (numValue > 5) {
+      setInputValue("5.0");
+      onChange(5);
+    } else {
+      setInputValue(numValue.toFixed(1));
+      onChange(numValue);
+    }
+  };
+
+  const handleStarClick = (starValue: number) => {
+    if (value === starValue) {
+      onChange(0);
+    } else {
+      onChange(starValue);
+    }
+  };
+
+  // Calculate partial fill for display
+  const fullStars = Math.floor(value);
+  const partialFill = value - fullStars;
+  const nextStarIndex = fullStars;
+
   return (
-    <div className="flex items-center gap-1">
-      {[1, 2, 3, 4, 5].map((star) => (
-        <button
-          key={star}
-          type="button"
-          onClick={() => onChange(star === value ? 0 : star)}
-          className="p-1 hover:scale-110 transition-transform"
-        >
-          <Star
-            className={cn(
-              "w-6 h-6 transition-colors",
-              star <= value ? "text-yellow-400 fill-yellow-400" : "text-gray-300"
-            )}
-          />
-        </button>
-      ))}
-      {value > 0 && (
-        <span className="ml-2 text-lg font-semibold">{value.toFixed(1)}</span>
-      )}
+    <div className="space-y-3">
+      {/* Visual Star Display */}
+      <div className="flex items-center gap-1">
+        {[1, 2, 3, 4, 5].map((star) => {
+          const isFull = star <= fullStars;
+          const isPartial = star === nextStarIndex + 1 && partialFill > 0;
+          
+          return (
+            <button
+              key={star}
+              type="button"
+              onClick={() => handleStarClick(star)}
+              className="p-1 hover:scale-110 transition-transform relative"
+            >
+              {isFull ? (
+                <Star className="w-6 h-6 text-yellow-400 fill-yellow-400" />
+              ) : isPartial ? (
+                <div className="relative w-6 h-6 flex-shrink-0">
+                  {/* Empty star background */}
+                  <Star className="w-6 h-6 text-gray-300 absolute inset-0" />
+                  {/* Partial fill */}
+                  <div 
+                    className="absolute inset-0 overflow-hidden"
+                    style={{ width: `${partialFill * 100}%` }}
+                  >
+                    <Star className="w-6 h-6 text-yellow-400 fill-yellow-400" />
+                  </div>
+                </div>
+              ) : (
+                <Star className="w-6 h-6 text-gray-300" />
+              )}
+            </button>
+          );
+        })}
+      </div>
+      
+      {/* Decimal Input */}
+      <div className="flex items-center gap-3">
+        <Label htmlFor="rating-input" className="text-sm font-medium">
+          Rating:
+        </Label>
+        <Input
+          id="rating-input"
+          type="number"
+          step="0.1"
+          min="0"
+          max="5"
+          value={inputValue}
+          onChange={handleInputChange}
+          onBlur={handleInputBlur}
+          placeholder="0.0"
+          className="w-24 h-10 elegant-input text-center"
+        />
+        <span className="text-sm text-muted-foreground">/ 5.0</span>
+      </div>
     </div>
   );
 }
