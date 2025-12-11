@@ -158,25 +158,18 @@ export function UploadForm() {
 
   const analyzeAll = async () => {
     if (analyzingAll) return;
+
+    const indicesToAnalyze = winesRef.current
+      .map((w, idx) => ({ wine: w, index: idx }))
+      .filter(({ wine }) => !wine.extractedData && !wine.analyzing)
+      .map(({ index }) => index);
+
+    if (indicesToAnalyze.length === 0) return;
+
     setAnalyzingAll(true);
-    
+
     try {
-      const indicesToAnalyze = winesRef.current
-        .map((w, idx) => ({ wine: w, index: idx }))
-        .filter(({ wine }) => !wine.extractedData && !wine.analyzing)
-        .map(({ index }) => index);
-      
-      for (let i = 0; i < indicesToAnalyze.length; i++) {
-        const index = indicesToAnalyze[i];
-        
-        if (winesRef.current[index] && !winesRef.current[index].extractedData && !winesRef.current[index].analyzing) {
-          await analyzeWine(index);
-          
-          if (i < indicesToAnalyze.length - 1) {
-            await new Promise(resolve => setTimeout(resolve, 500));
-          }
-        }
-      }
+      await Promise.all(indicesToAnalyze.map((index) => analyzeWine(index)));
     } finally {
       setAnalyzingAll(false);
     }

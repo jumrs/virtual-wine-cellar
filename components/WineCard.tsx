@@ -43,82 +43,100 @@ function getWineTypeBadgeClass(type?: string): string {
   return "bg-muted text-muted-foreground";
 }
 
-// Helper to get country flag emoji
-function getCountryFlag(country?: string): string {
+// Helper to get ISO country code from country name
+function getCountryCode(country?: string): string {
   if (!country) return "";
   
   const countryMap: Record<string, string> = {
-    "france": "🇫🇷",
-    "italy": "🇮🇹",
-    "spain": "🇪🇸",
-    "portugal": "🇵🇹",
-    "germany": "🇩🇪",
-    "austria": "🇦🇹",
-    "switzerland": "🇨🇭",
-    "greece": "🇬🇷",
-    "croatia": "🇭🇷",
-    "slovenia": "🇸🇮",
-    "hungary": "🇭🇺",
-    "romania": "🇷🇴",
-    "bulgaria": "🇧🇬",
-    "georgia": "🇬🇪",
-    "turkey": "🇹🇷",
-    "usa": "🇺🇸",
-    "united states": "🇺🇸",
-    "united states of america": "🇺🇸",
-    "canada": "🇨🇦",
-    "mexico": "🇲🇽",
-    "argentina": "🇦🇷",
-    "chile": "🇨🇱",
-    "brazil": "🇧🇷",
-    "uruguay": "🇺🇾",
-    "south africa": "🇿🇦",
-    "australia": "🇦🇺",
-    "new zealand": "🇳🇿",
-    "china": "🇨🇳",
-    "japan": "🇯🇵",
-    "india": "🇮🇳",
-    "israel": "🇮🇱",
-    "lebanon": "🇱🇧",
-    "morocco": "🇲🇦",
-    "tunisia": "🇹🇳",
-    "algeria": "🇩🇿",
-    "egypt": "🇪🇬",
-    "uk": "🇬🇧",
-    "united kingdom": "🇬🇧",
-    "england": "🇬🇧",
-    "ireland": "🇮🇪",
-    "scotland": "🇬🇧",
-    "wales": "🇬🇧",
-    "russia": "🇷🇺",
-    "ukraine": "🇺🇦",
-    "poland": "🇵🇱",
-    "czech republic": "🇨🇿",
-    "slovakia": "🇸🇰",
-    "moldova": "🇲🇩",
-    "serbia": "🇷🇸",
-    "montenegro": "🇲🇪",
-    "macedonia": "🇲🇰",
-    "bosnia": "🇧🇦",
-    "albania": "🇦🇱",
-    "cyprus": "🇨🇾",
-    "malta": "🇲🇹",
-    "luxembourg": "🇱🇺",
-    "belgium": "🇧🇪",
-    "netherlands": "🇳🇱",
-    "denmark": "🇩🇰",
-    "sweden": "🇸🇪",
-    "norway": "🇳🇴",
-    "finland": "🇫🇮",
-    "iceland": "🇮🇸",
-    "estonia": "🇪🇪",
-    "latvia": "🇱🇻",
-    "lithuania": "🇱🇹",
-    "belarus": "🇧🇾",
+    "france": "FR",
+    "italy": "IT",
+    "spain": "ES",
+    "portugal": "PT",
+    "germany": "DE",
+    "austria": "AT",
+    "switzerland": "CH",
+    "greece": "GR",
+    "croatia": "HR",
+    "slovenia": "SI",
+    "hungary": "HU",
+    "romania": "RO",
+    "bulgaria": "BG",
+    "georgia": "GE",
+    "turkey": "TR",
+    "usa": "US",
+    "united states": "US",
+    "united states of america": "US",
+    "canada": "CA",
+    "mexico": "MX",
+    "argentina": "AR",
+    "chile": "CL",
+    "brazil": "BR",
+    "uruguay": "UY",
+    "south africa": "ZA",
+    "australia": "AU",
+    "new zealand": "NZ",
+    "china": "CN",
+    "japan": "JP",
+    "india": "IN",
+    "israel": "IL",
+    "lebanon": "LB",
+    "morocco": "MA",
+    "tunisia": "TN",
+    "algeria": "DZ",
+    "egypt": "EG",
+    "uk": "GB",
+    "united kingdom": "GB",
+    "england": "GB",
+    "ireland": "IE",
+    "scotland": "GB",
+    "wales": "GB",
+    "russia": "RU",
+    "ukraine": "UA",
+    "poland": "PL",
+    "czech republic": "CZ",
+    "slovakia": "SK",
+    "moldova": "MD",
+    "serbia": "RS",
+    "montenegro": "ME",
+    "macedonia": "MK",
+    "bosnia": "BA",
+    "albania": "AL",
+    "cyprus": "CY",
+    "malta": "MT",
+    "luxembourg": "LU",
+    "belgium": "BE",
+    "netherlands": "NL",
+    "denmark": "DK",
+    "sweden": "SE",
+    "norway": "NO",
+    "finland": "FI",
+    "iceland": "IS",
+    "estonia": "EE",
+    "latvia": "LV",
+    "lithuania": "LT",
+    "belarus": "BY",
   };
   
   const normalizedCountry = country.toLowerCase().trim();
   return countryMap[normalizedCountry] || "";
+}
+
+// Country Flag Component using SVG flags
+function CountryFlag({ countryCode }: { countryCode: string }) {
+  if (!countryCode) return null;
+  
+  return (
+    <span 
+      className="inline-block w-7 h-5 rounded-sm overflow-hidden border border-border/30 shadow-sm"
+      style={{
+        backgroundImage: `url(https://flagcdn.com/w40/${countryCode.toLowerCase()}.png)`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat',
+      }}
+      title={countryCode}
+    />
+  );
 }
 
 // Star rating component with partial star support
@@ -240,9 +258,9 @@ export function WineCard({ wine, onDelete, onEdit, onImageUpdate, onQuantityUpda
           )}
 
           {/* Country Flag */}
-          {wine.country && getCountryFlag(wine.country) && (
-            <div className="absolute top-2 right-2 text-xl leading-none select-none">
-              {getCountryFlag(wine.country)}
+          {wine.country && getCountryCode(wine.country) && (
+            <div className="absolute top-2 right-2">
+              <CountryFlag countryCode={getCountryCode(wine.country)} />
             </div>
           )}
         </div>

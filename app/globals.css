@@ -206,8 +206,6 @@
     filter: blur(0.8px) brightness(1.2);
   }
   
-  
-  
   /* Wine badge styling */
   .wine-badge {
     @apply inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium;
