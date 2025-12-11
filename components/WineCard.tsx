@@ -43,6 +43,84 @@ function getWineTypeBadgeClass(type?: string): string {
   return "bg-muted text-muted-foreground";
 }
 
+// Helper to get country flag emoji
+function getCountryFlag(country?: string): string {
+  if (!country) return "";
+  
+  const countryMap: Record<string, string> = {
+    "france": "🇫🇷",
+    "italy": "🇮🇹",
+    "spain": "🇪🇸",
+    "portugal": "🇵🇹",
+    "germany": "🇩🇪",
+    "austria": "🇦🇹",
+    "switzerland": "🇨🇭",
+    "greece": "🇬🇷",
+    "croatia": "🇭🇷",
+    "slovenia": "🇸🇮",
+    "hungary": "🇭🇺",
+    "romania": "🇷🇴",
+    "bulgaria": "🇧🇬",
+    "georgia": "🇬🇪",
+    "turkey": "🇹🇷",
+    "usa": "🇺🇸",
+    "united states": "🇺🇸",
+    "united states of america": "🇺🇸",
+    "canada": "🇨🇦",
+    "mexico": "🇲🇽",
+    "argentina": "🇦🇷",
+    "chile": "🇨🇱",
+    "brazil": "🇧🇷",
+    "uruguay": "🇺🇾",
+    "south africa": "🇿🇦",
+    "australia": "🇦🇺",
+    "new zealand": "🇳🇿",
+    "china": "🇨🇳",
+    "japan": "🇯🇵",
+    "india": "🇮🇳",
+    "israel": "🇮🇱",
+    "lebanon": "🇱🇧",
+    "morocco": "🇲🇦",
+    "tunisia": "🇹🇳",
+    "algeria": "🇩🇿",
+    "egypt": "🇪🇬",
+    "uk": "🇬🇧",
+    "united kingdom": "🇬🇧",
+    "england": "🇬🇧",
+    "ireland": "🇮🇪",
+    "scotland": "🇬🇧",
+    "wales": "🇬🇧",
+    "russia": "🇷🇺",
+    "ukraine": "🇺🇦",
+    "poland": "🇵🇱",
+    "czech republic": "🇨🇿",
+    "slovakia": "🇸🇰",
+    "moldova": "🇲🇩",
+    "serbia": "🇷🇸",
+    "montenegro": "🇲🇪",
+    "macedonia": "🇲🇰",
+    "bosnia": "🇧🇦",
+    "albania": "🇦🇱",
+    "cyprus": "🇨🇾",
+    "malta": "🇲🇹",
+    "luxembourg": "🇱🇺",
+    "belgium": "🇧🇪",
+    "netherlands": "🇳🇱",
+    "denmark": "🇩🇰",
+    "sweden": "🇸🇪",
+    "norway": "🇳🇴",
+    "finland": "🇫🇮",
+    "iceland": "🇮🇸",
+    "estonia": "🇪🇪",
+    "latvia": "🇱🇻",
+    "lithuania": "🇱🇹",
+    "belarus": "🇧🇾",
+  };
+  
+  const normalizedCountry = country.toLowerCase().trim();
+  return countryMap[normalizedCountry] || "";
+}
+
 // Star rating component with partial star support
 function StarRating({ score }: { score: number }) {
   const fullStars = Math.floor(score);
@@ -156,6 +234,13 @@ export function WineCard({ wine, onDelete, onEdit, onImageUpdate, onQuantityUpda
           {wine.type && (
             <div className={cn("wine-badge absolute top-2 left-2", getWineTypeBadgeClass(wine.type))}>
               {wine.type}
+            </div>
+          )}
+
+          {/* Country Flag */}
+          {wine.country && getCountryFlag(wine.country) && (
+            <div className="absolute top-2 right-2 text-xl leading-none select-none">
+              {getCountryFlag(wine.country)}
             </div>
           )}
         </div>
