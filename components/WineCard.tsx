@@ -161,6 +161,7 @@ function StarRating({ score }: { score: number }) {
 export function WineCard({ wine, onDelete, onEdit, onImageUpdate, onQuantityUpdate, isRanOut = false }: WineCardProps) {
   const [updatingQuantity, setUpdatingQuantity] = useState(false);
   const { toast } = useToast();
+  const isPremium = wine.score !== null && wine.score !== undefined && wine.score >= 4.5;
 
   const handleQuantityChange = async (e: React.MouseEvent, delta: number) => {
     e.stopPropagation();
@@ -211,7 +212,8 @@ export function WineCard({ wine, onDelete, onEdit, onImageUpdate, onQuantityUpda
       <div 
         className={cn(
           "wine-card cursor-pointer group",
-          isRanOut && "opacity-50 grayscale"
+          isRanOut && "opacity-50 grayscale",
+          isPremium && "wine-card-premium"
         )}
         onClick={() => onEdit(wine)}
       >
