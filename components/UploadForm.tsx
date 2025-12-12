@@ -39,6 +39,7 @@ export function UploadForm() {
   const [analyzingAll, setAnalyzingAll] = useState(false);
   const [savingAll, setSavingAll] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
   const winesRef = useRef<WineWithFile[]>([]);
   const { toast } = useToast();
   
@@ -385,14 +386,19 @@ export function UploadForm() {
           {/* Camera-style frame */}
           <div className="aspect-[3/4] max-w-sm mx-auto bg-gradient-to-b from-muted to-muted/50 rounded-3xl overflow-hidden relative">
             <div className="absolute inset-0 flex flex-col items-center justify-center p-8">
-              <div className="w-20 h-20 rounded-full bg-white/80 backdrop-blur flex items-center justify-center mb-6 shadow-lg">
-                <Camera className="w-10 h-10 text-primary" />
-              </div>
-              <p className="text-center font-medium mb-2">Align label within frame</p>
-              <p className="text-center text-sm text-muted-foreground mb-6">
-                Position the wine label clearly visible
-              </p>
+              {/* Camera input - opens camera directly */}
+              <input
+                id="wine-camera"
+                type="file"
+                accept="image/*"
+                capture="environment"
+                multiple
+                onChange={handleFileChange}
+                ref={cameraInputRef}
+                className="hidden"
+              />
               
+              {/* File picker input - opens library */}
               <input
                 id="wine-images"
                 type="file"
@@ -402,6 +408,17 @@ export function UploadForm() {
                 ref={fileInputRef}
                 className="hidden"
               />
+              
+              <button
+                onClick={() => cameraInputRef.current?.click()}
+                className="w-20 h-20 rounded-full bg-white/80 backdrop-blur flex items-center justify-center mb-6 shadow-lg hover:scale-105 transition-transform cursor-pointer"
+              >
+                <Camera className="w-10 h-10 text-primary" />
+              </button>
+              <p className="text-center font-medium mb-2">Align label within frame</p>
+              <p className="text-center text-sm text-muted-foreground mb-6">
+                Position the wine label clearly visible
+              </p>
               
               <Button
                 onClick={() => fileInputRef.current?.click()}
@@ -417,16 +434,6 @@ export function UploadForm() {
             <div className="absolute top-8 right-8 w-12 h-12 border-r-2 border-t-2 border-primary rounded-tr-lg" />
             <div className="absolute bottom-8 left-8 w-12 h-12 border-l-2 border-b-2 border-primary rounded-bl-lg" />
             <div className="absolute bottom-8 right-8 w-12 h-12 border-r-2 border-b-2 border-primary rounded-br-lg" />
-          </div>
-
-          {/* Capture button style */}
-          <div className="flex justify-center mt-6">
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              className="w-16 h-16 rounded-full bg-white border-4 border-primary flex items-center justify-center shadow-lg hover:scale-105 transition-transform"
-            >
-              <div className="w-12 h-12 rounded-full bg-primary/10" />
-            </button>
           </div>
         </div>
       ) : (
