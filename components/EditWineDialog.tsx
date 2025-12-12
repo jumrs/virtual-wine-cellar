@@ -158,6 +158,7 @@ export function EditWineDialog({ wine, open, onOpenChange, onSave, onImageUpdate
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [imageEditOpen, setImageEditOpen] = useState(false);
+  const [imageViewerOpen, setImageViewerOpen] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -290,13 +291,14 @@ export function EditWineDialog({ wine, open, onOpenChange, onSave, onImageUpdate
               src={wine.label_image_url}
               alt={wine.name}
               fill
-              className="object-contain"
+              className="object-contain cursor-pointer hover:opacity-90 transition-opacity"
+              onClick={() => setImageViewerOpen(true)}
             />
             <Button
               variant="ghost"
               size="icon"
               onClick={() => onOpenChange(false)}
-              className="absolute top-3 right-3 w-8 h-8 rounded-full bg-background/80 backdrop-blur"
+              className="absolute top-3 right-3 w-8 h-8 rounded-full bg-background/80 backdrop-blur z-10"
             >
               <X className="w-4 h-4" />
             </Button>
@@ -308,7 +310,7 @@ export function EditWineDialog({ wine, open, onOpenChange, onSave, onImageUpdate
                 e.stopPropagation();
                 setImageEditOpen(true);
               }}
-              className="absolute bottom-3 right-3 rounded-full h-9 px-3 text-xs bg-background/90 backdrop-blur hover:bg-background"
+              className="absolute bottom-3 right-3 rounded-full h-9 px-3 text-xs bg-background/90 backdrop-blur hover:bg-background z-10"
             >
               <ImageIcon className="h-3.5 w-3.5 mr-1.5" />
               Edit Photo
@@ -558,6 +560,34 @@ export function EditWineDialog({ wine, open, onOpenChange, onSave, onImageUpdate
             onSave(); // Refresh the wine data
           }}
         />
+      )}
+
+      {/* Full Size Image Viewer */}
+      {wine?.label_image_url && (
+        <Dialog open={imageViewerOpen} onOpenChange={setImageViewerOpen}>
+          <DialogContent className="max-w-[95vw] max-h-[95vh] w-full h-full p-0 gap-0 bg-black/90 border-0 shadow-none">
+            <div className="relative w-full h-full flex items-center justify-center p-4">
+              <div className="relative w-full h-full max-w-full max-h-full">
+                <Image
+                  src={wine.label_image_url}
+                  alt={wine.name}
+                  fill
+                  className="object-contain"
+                  sizes="95vw"
+                  priority
+                />
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setImageViewerOpen(false)}
+                className="absolute top-4 right-4 w-10 h-10 rounded-full bg-background/90 backdrop-blur hover:bg-background/80 z-10 text-foreground"
+              >
+                <X className="w-5 h-5" />
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       )}
     </Dialog>
   );
