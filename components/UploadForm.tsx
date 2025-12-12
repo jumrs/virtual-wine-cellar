@@ -425,7 +425,7 @@ export function UploadForm() {
                 className="rounded-full btn-wine px-6"
               >
                 <ImagePlus className="w-5 h-5 mr-2" />
-                Choose Photos
+                Upload Image
               </Button>
             </div>
 
