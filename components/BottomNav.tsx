@@ -50,8 +50,8 @@ export function BottomNav() {
   }
 
   return (
-    <nav className="bottom-nav md:hidden">
-      <div className="flex items-center justify-around">
+    <nav className="bottom-nav">
+      <div className="flex items-center justify-around max-w-4xl mx-auto">
         {navItems.map((item) => {
           const isActive = pathname === item.href;
           return (
