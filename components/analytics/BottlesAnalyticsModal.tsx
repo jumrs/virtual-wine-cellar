@@ -63,9 +63,6 @@ export function BottlesAnalyticsModal({ open, onOpenChange, wines }: BottlesAnal
             <Package className="w-5 h-5 text-primary" />
             Bottle Count Insights
           </DialogTitle>
-          <DialogDescription>
-            See which wines you've stocked up on
-          </DialogDescription>
         </DialogHeader>
 
         {/* Insights */}

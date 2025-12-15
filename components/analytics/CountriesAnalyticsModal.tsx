@@ -130,9 +130,6 @@ export function CountriesAnalyticsModal({ open, onOpenChange, wines }: Countries
             <Globe className="w-5 h-5 text-primary" />
             Your Wines by Country
           </DialogTitle>
-          <DialogDescription>
-            Explore the geographic diversity of your collection
-          </DialogDescription>
         </DialogHeader>
 
         {/* Insights */}
@@ -150,108 +147,8 @@ export function CountriesAnalyticsModal({ open, onOpenChange, wines }: Countries
           </p>
         </div>
 
-        {/* Charts Container */}
-        <div className="grid md:grid-cols-2 gap-6 mt-4">
-          {/* Country Distribution Pie */}
-          <div className="space-y-3">
-            <h3 className="text-sm font-medium flex items-center gap-2">
-              <Flag className="w-4 h-4 text-primary" />
-              Distribution
-            </h3>
-            <div className="h-[200px] w-full">
-              {countryData.length > 0 ? (
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={countryData.slice(0, 8)}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={35}
-                      outerRadius={75}
-                      paddingAngle={2}
-                      dataKey="value"
-                      label={({ name, percent }) => 
-                        percent > 0.08 ? name : ''
-                      }
-                      labelLine={false}
-                    >
-                      {countryData.slice(0, 8).map((_, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip 
-                      formatter={(value: number, name, props) => [
-                        `${value} wines (${Math.round((value / wines.length) * 100)}%)`,
-                        `${props.payload.flag} ${name}`
-                      ]}
-                      contentStyle={{ 
-                        borderRadius: '12px', 
-                        border: 'none',
-                        boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
-                      }}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="h-full flex items-center justify-center text-muted-foreground text-sm">
-                  No country data available
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Country Bar Chart */}
-          <div className="space-y-3">
-            <h3 className="text-sm font-medium flex items-center gap-2">
-              <MapPin className="w-4 h-4 text-primary" />
-              Wine Count by Country
-            </h3>
-            <div className="h-[200px] w-full">
-              {countryData.length > 0 ? (
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart 
-                    data={countryData.slice(0, 7)} 
-                    layout="vertical"
-                    margin={{ left: 10, right: 20, top: 5, bottom: 5 }}
-                  >
-                    <XAxis type="number" hide />
-                    <YAxis 
-                      type="category" 
-                      dataKey="name"
-                      width={80}
-                      tick={{ fontSize: 11 }}
-                      axisLine={false}
-                      tickLine={false}
-                      tickFormatter={(value) => `${COUNTRY_FLAGS[value] || '🍷'} ${value.slice(0, 8)}${value.length > 8 ? '..' : ''}`}
-                    />
-                    <Tooltip 
-                      formatter={(value: number) => [`${value} wines`, 'Count']}
-                      contentStyle={{ 
-                        borderRadius: '12px', 
-                        border: 'none',
-                        boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
-                      }}
-                    />
-                    <Bar 
-                      dataKey="value" 
-                      fill="hsl(348, 83%, 47%)"
-                      radius={[0, 6, 6, 0]}
-                      barSize={20}
-                    />
-                  </BarChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="h-full flex items-center justify-center text-muted-foreground text-sm">
-                  No data available
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
         {/* Country List */}
         <div className="mt-4 space-y-2">
-          <h3 className="text-sm font-medium">Full Breakdown</h3>
           <div className="grid grid-cols-2 gap-2 max-h-[150px] overflow-y-auto">
             {countryData.map((country, index) => (
               <div 

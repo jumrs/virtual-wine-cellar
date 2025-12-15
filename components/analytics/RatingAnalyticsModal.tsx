@@ -102,18 +102,10 @@ export function RatingAnalyticsModal({ open, onOpenChange, wines }: RatingAnalyt
             <Star className="w-5 h-5 text-yellow-500" />
             Your Rating Distribution
           </DialogTitle>
-          <DialogDescription>
-            How you've rated your wine collection
-          </DialogDescription>
         </DialogHeader>
 
         {/* Insights */}
         <div className="bg-muted/30 rounded-xl p-4 space-y-1">
-          {stats.mostCommonRange && (
-            <p className="text-sm">
-              <span className="font-medium">Most common rating range: {stats.mostCommonRange}</span>
-            </p>
-          )}
           {stats.topRated && (
             <p className="text-sm text-muted-foreground">
               Top-rated wine:{" "}

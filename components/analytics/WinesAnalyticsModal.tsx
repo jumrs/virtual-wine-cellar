@@ -19,7 +19,7 @@ import {
   YAxis,
   Tooltip,
   ResponsiveContainer,
-  Legend,
+  Lernd,
 } from "recharts";
 import { Grape, Wine as WineIcon } from "lucide-react";
 
@@ -100,9 +100,6 @@ export function WinesAnalyticsModal({ open, onOpenChange, wines }: WinesAnalytic
             <WineIcon className="w-5 h-5 text-primary" />
             Your Wine Variety Breakdown
           </DialogTitle>
-          <DialogDescription>
-            Explore the diversity of your wine collection
-          </DialogDescription>
         </DialogHeader>
 
         {/* Insights */}
