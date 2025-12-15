@@ -6,7 +6,9 @@ CREATE TABLE IF NOT EXISTS wines (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL,
   type TEXT,
-  grape TEXT,
+  grape TEXT, -- Legacy field for backward compatibility
+  grapes TEXT[] DEFAULT '{}', -- Array of grape varieties
+  is_blend BOOLEAN DEFAULT false, -- True when multiple grapes
   region TEXT,
   country TEXT,
   vintage INTEGER,
@@ -24,6 +26,16 @@ ALTER TABLE wines ADD COLUMN IF NOT EXISTS country TEXT;
 
 -- Add score column if table already exists (for existing installations)
 ALTER TABLE wines ADD COLUMN IF NOT EXISTS score NUMERIC(3, 2) CHECK (score >= 0 AND score <= 5);
+
+-- Add grapes array column if table already exists (for existing installations)
+ALTER TABLE wines ADD COLUMN IF NOT EXISTS grapes TEXT[] DEFAULT '{}';
+
+-- Add is_blend column if table already exists (for existing installations)
+ALTER TABLE wines ADD COLUMN IF NOT EXISTS is_blend BOOLEAN DEFAULT false;
+
+-- Create indexes for efficient filtering on grapes
+CREATE INDEX IF NOT EXISTS idx_wines_grapes ON wines USING GIN (grapes);
+CREATE INDEX IF NOT EXISTS idx_wines_is_blend ON wines (is_blend);
 
 -- Create user_wines junction table
 CREATE TABLE IF NOT EXISTS user_wines (

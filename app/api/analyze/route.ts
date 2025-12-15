@@ -44,13 +44,15 @@ const response = await openai.chat.completions.create({
   4. Verify information with reputable sources (producer website, major wine retailers, wine databases).
   5. Search for tasting notes, flavor profiles, and additional wine information from reputable sources.
   6. If a field cannot be verified, return null instead of guessing.
+  7. IMPORTANT: For grape varieties, return an ARRAY of all grape varietals. If it's a blend, include ALL grapes in the blend.
   
   Return ONLY valid JSON with the following structure:
   
   {
     "name": "wine name",
     "type": "wine type if visible or found online (e.g. red, white, rosé, sparkling, etc.)",
-    "grape": "grape varietal if visible or found online (e.g. Cabernet Sauvignon, Pinot Noir, Chardonnay, etc.)",
+    "grapes": ["array", "of", "grape", "varietals"] or empty array if unknown,
+    "is_blend": true if multiple grapes, false if single grape or unknown,
     "region": "region/appellation if visible or found online (e.g. Bordeaux, Napa Valley)",
     "country": "country if visible or found online (e.g. France, Italy, USA)",
     "vintage": year as number or null,
@@ -63,7 +65,10 @@ const response = await openai.chat.completions.create({
   - Do NOT write words starting with lowercase letters.
   - Prioritize information that is visible on the label before online results.
   - If conflicting online sources appear, choose the most authoritative one.
-  - For the notes field, include tasting notes, flavor profiles, and any other relevant wine information you find.`,
+  - For the notes field, include tasting notes, flavor profiles, and any other relevant wine information you find.
+  - CRITICAL: "grapes" MUST be an array, even for single grape wines (e.g. ["Pinot Noir"]).
+  - If the wine is a blend (e.g., Bordeaux blend, Rhône blend), list all component grapes.
+  - Common blends to recognize: Bordeaux (Cabernet Sauvignon, Merlot, Cabernet Franc, Petit Verdot, Malbec), GSM (Grenache, Syrah, Mourvèdre), Champagne (Chardonnay, Pinot Noir, Pinot Meunier).`,
           },
           {
             type: "image_url",
@@ -74,7 +79,7 @@ const response = await openai.chat.completions.create({
         ],
       },
     ],
-    max_tokens: 500,
+    max_tokens: 600,
   });
   
 
@@ -95,7 +100,8 @@ const response = await openai.chat.completions.create({
       wineData = {
         name: content.match(/"name":\s*"([^"]+)"/)?.[1] || "Unknown Wine",
         type: content.match(/"type":\s*"([^"]+)"/)?.[1],
-        grape: content.match(/"grape":\s*"([^"]+)"/)?.[1],
+        grapes: [],
+        is_blend: false,
         region: content.match(/"region":\s*"([^"]+)"/)?.[1],
         country: content.match(/"country":\s*"([^"]+)"/)?.[1],
         vintage: parseInt(content.match(/"vintage":\s*(\d+)/)?.[1] || "0") || undefined,
@@ -107,6 +113,32 @@ const response = await openai.chat.completions.create({
     if (!wineData.name) {
       wineData.name = "Unknown Wine";
     }
+
+    // Normalize grapes field - ensure it's always an array
+    if (wineData.grapes && !Array.isArray(wineData.grapes)) {
+      // If grapes is a string, convert to array
+      if (typeof wineData.grapes === 'string') {
+        wineData.grapes = wineData.grapes.split(/[\/,+]|\s+and\s+/i).map((g: string) => g.trim()).filter((g: string) => g);
+      } else {
+        wineData.grapes = [];
+      }
+    }
+    
+    // Ensure grapes is at least an empty array
+    if (!wineData.grapes) {
+      wineData.grapes = [];
+    }
+
+    // Handle legacy "grape" field if present and grapes array is empty
+    if (wineData.grape && wineData.grapes.length === 0) {
+      wineData.grapes = wineData.grape.split(/[\/,+]|\s+and\s+/i).map((g: string) => g.trim()).filter((g: string) => g);
+    }
+
+    // Set is_blend based on grapes array length
+    wineData.is_blend = wineData.grapes.length > 1;
+
+    // Also set legacy grape field for backward compatibility
+    wineData.grape = wineData.grapes.length > 0 ? wineData.grapes.join(", ") : null;
 
     return NextResponse.json(wineData);
   } catch (error: any) {

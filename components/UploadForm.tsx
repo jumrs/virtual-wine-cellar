@@ -14,7 +14,9 @@ import { DuplicateWineDialog } from "@/components/DuplicateWineDialog";
 interface ExtractedWineData {
   name: string;
   type?: string;
-  grape?: string;
+  grape?: string; // Legacy field
+  grapes?: string[]; // New array field
+  is_blend?: boolean;
   region?: string;
   country?: string;
   vintage?: number;
@@ -576,21 +578,39 @@ export function UploadForm() {
 
                     {wine.extractedData && !wine.saved && (
                       <div className="space-y-3">
-                        {/* Wine details grid */}
-                        <div className="grid grid-cols-2 gap-2 text-sm">
-                          {wine.extractedData.type && (
-                            <div>
-                              <span className="text-muted-foreground">Type:</span>{" "}
-                              <span className="font-medium">{wine.extractedData.type}</span>
-                            </div>
-                          )}
-                          {wine.extractedData.grape && (
-                            <div>
-                              <span className="text-muted-foreground">Grape:</span>{" "}
-                              <span className="font-medium">{wine.extractedData.grape}</span>
-                            </div>
-                          )}
-                        </div>
+{/* Wine details grid */}
+                                        <div className="space-y-2 text-sm">
+                                          <div className="flex flex-wrap gap-2">
+                                            {wine.extractedData.type && (
+                                              <span className="px-2 py-0.5 bg-muted rounded-full text-xs">
+                                                {wine.extractedData.type}
+                                              </span>
+                                            )}
+                                            {wine.extractedData.is_blend && (
+                                              <span className="px-2 py-0.5 bg-amber-500/20 text-amber-700 rounded-full text-xs font-medium">
+                                                🍇 Blend
+                                              </span>
+                                            )}
+                                          </div>
+                                          {/* Grape Tags */}
+                                          {wine.extractedData.grapes && wine.extractedData.grapes.length > 0 ? (
+                                            <div className="flex flex-wrap gap-1">
+                                              {wine.extractedData.grapes.map((grape, i) => (
+                                                <span
+                                                  key={i}
+                                                  className="px-2 py-0.5 bg-primary/10 text-primary rounded-full text-xs"
+                                                >
+                                                  {grape}
+                                                </span>
+                                              ))}
+                                            </div>
+                                          ) : wine.extractedData.grape && (
+                                            <div>
+                                              <span className="text-muted-foreground">Grape:</span>{" "}
+                                              <span className="font-medium">{wine.extractedData.grape}</span>
+                                            </div>
+                                          )}
+                                        </div>
 
                         {/* Quantity */}
                         <div className="flex items-center gap-3">

@@ -11,6 +11,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Loader2, Save, Trash2, X, Star, MapPin, Wine, Calendar, Grape, Globe, Package, Plus, Minus, ImageIcon } from "lucide-react";
+import { GrapeSelector } from "@/components/ui/grape-selector";
+import { parseGrapeString, isBlend as checkIsBlend } from "@/lib/grapeVarieties";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/lib/supabaseClient";
 import type { Wine as WineType } from "./WineCard";
@@ -147,7 +149,9 @@ export function EditWineDialog({ wine, open, onOpenChange, onSave, onImageUpdate
   const [formData, setFormData] = useState({
     name: "",
     type: "",
-    grape: "",
+    grape: "", // Legacy field
+    grapes: [] as string[], // New array field
+    is_blend: false,
     region: "",
     country: "",
     vintage: "",
@@ -163,10 +167,19 @@ export function EditWineDialog({ wine, open, onOpenChange, onSave, onImageUpdate
 
   useEffect(() => {
     if (wine) {
+      // Handle grapes: use grapes array if available, otherwise parse legacy grape string
+      const grapes = wine.grapes && wine.grapes.length > 0 
+        ? wine.grapes 
+        : wine.grape 
+          ? parseGrapeString(wine.grape)
+          : [];
+      
       setFormData({
         name: wine.name || "",
         type: wine.type || "",
-        grape: wine.grape || "",
+        grape: wine.grape || "", // Keep for backward compat
+        grapes: grapes,
+        is_blend: wine.is_blend ?? checkIsBlend(grapes),
         region: wine.region || "",
         country: wine.country || "",
         vintage: wine.vintage?.toString() || "",
@@ -199,7 +212,9 @@ export function EditWineDialog({ wine, open, onOpenChange, onSave, onImageUpdate
         body: JSON.stringify({
           name: formData.name,
           type: formData.type || null,
-          grape: formData.grape || null,
+          grape: formData.grapes.length > 0 ? formData.grapes.join(", ") : null, // Legacy field for backward compat
+          grapes: formData.grapes,
+          is_blend: formData.grapes.length > 1,
           region: formData.region || null,
           country: formData.country || null,
           vintage: formData.vintage ? parseInt(formData.vintage) : null,
@@ -407,34 +422,35 @@ export function EditWineDialog({ wine, open, onOpenChange, onSave, onImageUpdate
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="edit-grape" className="text-sm font-medium flex items-center gap-1">
-                <Grape className="w-3 h-3 text-muted-foreground" />
-                Grape
-              </Label>
-              <Input
-                id="edit-grape"
-                value={formData.grape}
-                onChange={(e) => setFormData({ ...formData, grape: e.target.value })}
-                placeholder="e.g., Cabernet"
-                className="elegant-input h-10"
-              />
-            </div>
+          {/* Grapes Section */}
+          <div className="space-y-2">
+            <Label className="text-sm font-medium flex items-center gap-2">
+              <Grape className="w-4 h-4 text-muted-foreground" />
+              Grapes
+            </Label>
+            <GrapeSelector
+              value={formData.grapes}
+              onChange={(grapes) => setFormData({ 
+                ...formData, 
+                grapes, 
+                is_blend: grapes.length > 1,
+                grape: grapes.join(", ") // Update legacy field
+              })}
+            />
+          </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="edit-region" className="text-sm font-medium flex items-center gap-1">
-                <MapPin className="w-3 h-3 text-muted-foreground" />
-                Region
-              </Label>
-              <Input
-                id="edit-region"
-                value={formData.region}
-                onChange={(e) => setFormData({ ...formData, region: e.target.value })}
-                placeholder="e.g., Bordeaux"
-                className="elegant-input h-10"
-              />
-            </div>
+          <div className="space-y-2">
+            <Label htmlFor="edit-region" className="text-sm font-medium flex items-center gap-1">
+              <MapPin className="w-3 h-3 text-muted-foreground" />
+              Region
+            </Label>
+            <Input
+              id="edit-region"
+              value={formData.region}
+              onChange={(e) => setFormData({ ...formData, region: e.target.value })}
+              placeholder="e.g., Bordeaux"
+              className="elegant-input h-10"
+            />
           </div>
 
           <div className="space-y-2">
