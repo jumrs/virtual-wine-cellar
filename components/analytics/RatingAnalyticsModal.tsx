@@ -125,6 +125,32 @@ export function RatingAnalyticsModal({ open, onOpenChange, wines }: RatingAnalyt
     return "hsl(0, 60%, 50%)"; // red
   };
 
+  // Custom tooltip component to show breakdown
+  const CustomTooltip = ({ active, payload }: any) => {
+    if (!active || !payload || !payload[0]) return null;
+    
+    const data = payload[0].payload;
+    const range = data.range;
+    const breakdown = getRatingBreakdown(range);
+    
+    if (breakdown.length === 0) return null;
+    
+    return (
+      <div className="bg-background border border-border/50 rounded-xl p-3 shadow-lg">
+        <p className="text-sm font-semibold mb-2">{range}</p>
+        <div className="space-y-1">
+          {breakdown.map((item) => (
+            <div key={item.rating} className="flex items-center justify-between text-xs gap-3">
+              <span className="text-muted-foreground">{item.rating.toFixed(1)}</span>
+              <span className="font-medium text-foreground">—</span>
+              <span className="font-semibold text-primary">{item.count}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-2xl p-6">
@@ -161,7 +187,7 @@ export function RatingAnalyticsModal({ open, onOpenChange, wines }: RatingAnalyt
                 <p className="text-sm text-muted-foreground flex items-center gap-1 mt-1">
                   <Star className="w-3 h-3 text-yellow-500 fill-yellow-500" />
                   <span className="font-medium text-foreground">{stats.topRated.score?.toFixed(1)}</span>
-                  <span className="text-xs">Top-rated wine</span>
+                  <span className="text-xs">Your #1 Top-rated wine</span>
                 </p>
               </div>
             </div>
@@ -187,106 +213,8 @@ export function RatingAnalyticsModal({ open, onOpenChange, wines }: RatingAnalyt
           </div>
         </div>
 
-        {/* Rating Distribution Chart */}
-        <div className="mt-4 space-y-3">
-          <h3 className="text-sm font-medium flex items-center gap-2">
-            <TrendingUp className="w-4 h-4 text-primary" />
-            Rating Distribution
-          </h3>
-          <div className="h-[220px] w-full">
-            {stats.ratedCount > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart 
-                  data={ratingData} 
-                  layout="vertical"
-                  margin={{ left: 10, right: 30, top: 5, bottom: 5 }}
-                >
-                  <XAxis type="number" hide />
-                  <YAxis 
-                    type="category" 
-                    dataKey="range" 
-                    width={60}
-                    tick={{ fontSize: 11 }}
-                    axisLine={false}
-                    tickLine={false}
-                  />
-                  <Tooltip 
-                    formatter={(value: number | undefined) => [`${value || 0} wines`, 'Count']}
-                    contentStyle={{ 
-                      borderRadius: '12px', 
-                      border: 'none',
-                      boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
-                    }}
-                  />
-                    <Bar 
-                      dataKey="count" 
-                      radius={[0, 6, 6, 0]}
-                      barSize={24}
-                    >
-                      {ratingData.map((entry, index) => (
-                        <Cell 
-                          key={`cell-${index}`} 
-                          fill={getBarColor(entry.range)} 
-                        />
-                      ))}
-                    </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="h-full flex items-center justify-center text-muted-foreground text-sm">
-                No rated wines yet
-              </div>
-            )}
-          </div>
-          
-          {/* Clickable rating intervals */}
-          <div className="space-y-2 mt-3">
-            {ratingData.map((entry) => {
-              const breakdown = getRatingBreakdown(entry.range);
-              const isExpanded = selectedRange === entry.range;
-              
-              return (
-                <div key={entry.range} className="border border-border/50 rounded-lg overflow-hidden">
-                  <button
-                    onClick={() => setSelectedRange(isExpanded ? null : entry.range)}
-                    className="w-full flex items-center justify-between p-2.5 bg-muted/20 hover:bg-muted/30 transition-colors"
-                  >
-                    <div className="flex items-center gap-2">
-                      <div 
-                        className="w-3 h-3 rounded-full"
-                        style={{ backgroundColor: getBarColor(entry.range) }}
-                      />
-                      <span className="text-sm font-medium">{entry.range}</span>
-                      <span className="text-xs text-muted-foreground">({entry.count} wines)</span>
-                    </div>
-                    <span className="text-xs text-muted-foreground">
-                      {isExpanded ? "▼" : "▶"}
-                    </span>
-                  </button>
-                  
-                  {isExpanded && breakdown.length > 0 && (
-                    <div className="p-3 bg-muted/10 border-t border-border/50">
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                        {breakdown.map((item) => (
-                          <div 
-                            key={item.rating}
-                            className="flex items-center justify-between py-1.5 px-2 bg-background rounded text-xs"
-                          >
-                            <span className="text-muted-foreground">{item.rating.toFixed(1)}</span>
-                            <span className="font-medium text-primary">{item.count}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Top Rated Wines */}
-        {stats.ratedCount > 0 && (
+{/* Top Rated Wines */}
+{stats.ratedCount > 0 && (
           <div className="mt-4 space-y-2">
             <h3 className="text-sm font-medium flex items-center gap-2">
               <Award className="w-4 h-4 text-yellow-500" />
@@ -318,6 +246,53 @@ export function RatingAnalyticsModal({ open, onOpenChange, wines }: RatingAnalyt
             </div>
           </div>
         )}
+
+        {/* Rating Distribution Chart */}
+        <div className="mt-4 space-y-3">
+          <h3 className="text-sm font-medium flex items-center gap-2">
+            <TrendingUp className="w-4 h-4 text-primary" />
+            Rating Distribution
+          </h3>
+          <div className="h-[220px] w-full">
+            {stats.ratedCount > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart 
+                  data={ratingData} 
+                  layout="vertical"
+                  margin={{ left: 10, right: 30, top: 5, bottom: 5 }}
+                >
+                  <XAxis type="number" hide />
+                  <YAxis 
+                    type="category" 
+                    dataKey="range" 
+                    width={60}
+                    tick={{ fontSize: 11 }}
+                    axisLine={false}
+                    tickLine={false}
+                  />
+                  <Tooltip content={<CustomTooltip />} />
+                    <Bar 
+                      dataKey="count" 
+                      radius={[0, 6, 6, 0]}
+                      barSize={24}
+                    >
+                      {ratingData.map((entry, index) => (
+                        <Cell 
+                          key={`cell-${index}`} 
+                          fill={getBarColor(entry.range)} 
+                        />
+                      ))}
+                    </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-full flex items-center justify-center text-muted-foreground text-sm">
+                No rated wines yet
+              </div>
+            )}
+          </div>
+          
+        </div>
       </DialogContent>
     </Dialog>
   );
