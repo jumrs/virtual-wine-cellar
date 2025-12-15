@@ -19,7 +19,6 @@ import {
   YAxis,
   Tooltip,
   ResponsiveContainer,
-  Lernd,
 } from "recharts";
 import { Grape, Wine as WineIcon } from "lucide-react";
 
@@ -50,7 +49,7 @@ const TYPE_COLORS: Record<string, string> = {
 };
 
 export function WinesAnalyticsModal({ open, onOpenChange, wines }: WinesAnalyticsModalProps) {
-  // Calculate grape variety data
+  // Calculate grape variety data (top 5)
   const grapeData = useMemo(() => {
     const grapeCount: Record<string, number> = {};
     wines.forEach((wine) => {
@@ -61,7 +60,7 @@ export function WinesAnalyticsModal({ open, onOpenChange, wines }: WinesAnalytic
     return Object.entries(grapeCount)
       .map(([name, value]) => ({ name, value }))
       .sort((a, b) => b.value - a.value)
-      .slice(0, 8); // Top 8 grapes
+      .slice(0, 5); // Top 5 grapes
   }, [wines]);
 
   // Calculate wine type distribution
@@ -101,7 +100,6 @@ export function WinesAnalyticsModal({ open, onOpenChange, wines }: WinesAnalytic
             Your Wine Variety Breakdown
           </DialogTitle>
         </DialogHeader>
-
         {/* Insights */}
         <div className="bg-muted/30 rounded-xl p-4 space-y-1">
           <p className="text-sm">
@@ -114,110 +112,77 @@ export function WinesAnalyticsModal({ open, onOpenChange, wines }: WinesAnalytic
           )}
         </div>
 
-        {/* Charts Container */}
-        <div className="grid md:grid-cols-2 gap-6 mt-4">
-          {/* Grape Variety Pie Chart */}
-          <div className="space-y-3">
-            <h3 className="text-sm font-medium flex items-center gap-2">
-              <Grape className="w-4 h-4 text-primary" />
-              By Grape Variety
-            </h3>
-            <div className="h-[220px] w-full">
-              {grapeData.length > 0 ? (
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={grapeData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={40}
-                      outerRadius={80}
-                      paddingAngle={2}
-                      dataKey="value"
-                      label={({ name, percent }) => 
-                        percent > 0.05 ? `${name.slice(0, 10)}${name.length > 10 ? '...' : ''}` : ''
-                      }
-                      labelLine={false}
-                    >
-                      {grapeData.map((_, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip 
-                      formatter={(value: number) => [`${value} wines`, 'Count']}
-                      contentStyle={{ 
-                        borderRadius: '12px', 
-                        border: 'none',
-                        boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
-                      }}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="h-full flex items-center justify-center text-muted-foreground text-sm">
-                  No grape data available
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Wine Type Bar Chart */}
-          <div className="space-y-3">
-            <h3 className="text-sm font-medium flex items-center gap-2">
-              <WineIcon className="w-4 h-4 text-primary" />
-              By Wine Type
-            </h3>
-            <div className="h-[220px] w-full">
-              {typeData.length > 0 ? (
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={typeData} layout="vertical" margin={{ left: 20, right: 20 }}>
-                    <XAxis type="number" hide />
-                    <YAxis 
-                      type="category" 
-                      dataKey="name" 
-                      width={70}
-                      tick={{ fontSize: 12 }}
-                      axisLine={false}
-                      tickLine={false}
-                    />
-                    <Tooltip 
-                      formatter={(value: number) => [`${value} wines`, 'Count']}
-                      contentStyle={{ 
-                        borderRadius: '12px', 
-                        border: 'none',
-                        boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
-                      }}
-                    />
-                    <Bar 
-                      dataKey="value" 
-                      radius={[0, 6, 6, 0]}
-                      barSize={24}
-                    />
-                  </BarChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="h-full flex items-center justify-center text-muted-foreground text-sm">
-                  No type data available
-                </div>
-              )}
-            </div>
+        {/* Grape Variety Bar Chart */}
+        <div className="mt-4 space-y-3">
+          <h3 className="text-sm font-medium flex items-center gap-2">
+            <Grape className="w-4 h-4 text-primary" />
+            Top 5 Grape Varieties
+          </h3>
+          <div className="h-[200px] w-full">
+            {grapeData.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart 
+                  data={grapeData} 
+                  layout="vertical"
+                  margin={{ left: 10, right: 30, top: 5, bottom: 5 }}
+                >
+                  <XAxis type="number" hide />
+                  <YAxis 
+                    type="category" 
+                    dataKey="name" 
+                    width={120}
+                    tick={{ fontSize: 12 }}
+                    axisLine={false}
+                    tickLine={false}
+                  />
+                  <Tooltip 
+                    formatter={(value: number | undefined) => [`${value || 0} wines`, 'Count']}
+                    contentStyle={{ 
+                      borderRadius: '12px', 
+                      border: 'none',
+                      boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+                    }}
+                  />
+                  <Bar 
+                    dataKey="value" 
+                    radius={[0, 6, 6, 0]}
+                    barSize={24}
+                  >
+                    {grapeData.map((_, index) => (
+                      <Cell 
+                        key={`cell-${index}`} 
+                        fill={COLORS[index % COLORS.length]} 
+                      />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-full flex items-center justify-center text-muted-foreground text-sm">
+                No grape data available
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Grape Legend */}
-        {grapeData.length > 0 && (
-          <div className="flex flex-wrap gap-2 mt-2">
-            {grapeData.map((grape, index) => (
-              <div key={grape.name} className="flex items-center gap-1.5 text-xs">
-                <div 
-                  className="w-3 h-3 rounded-full"
-                  style={{ backgroundColor: COLORS[index % COLORS.length] }}
-                />
-                <span className="text-muted-foreground">{grape.name}</span>
+        {/* Wine Type List */}
+        <div className="mt-4 space-y-2">
+          <h3 className="text-sm font-medium flex items-center gap-2">
+            <WineIcon className="w-4 h-4 text-primary" />
+            Wine Types
+          </h3>
+          <div className="grid grid-cols-2 gap-2">
+            {typeData.map((type) => (
+              <div 
+                key={type.name}
+                className="flex items-center justify-between py-1.5 px-3 bg-muted/20 rounded-lg text-sm"
+              >
+                <span className="truncate">{type.name}</span>
+                <span className="font-medium text-primary ml-2">{type.value}</span>
               </div>
             ))}
           </div>
-        )}
+        </div>
       </DialogContent>
     </Dialog>
   );

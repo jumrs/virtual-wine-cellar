@@ -94,62 +94,14 @@ export function BottlesAnalyticsModal({ open, onOpenChange, wines }: BottlesAnal
           </div>
         </div>
 
-        {/* Bar Chart */}
+        {/* Wine List */}
         <div className="mt-4 space-y-3">
           <h3 className="text-sm font-medium flex items-center gap-2">
             <TrendingUp className="w-4 h-4 text-primary" />
-            Top 10 Most Stocked Wines
+            Top 5 Most Stocked Wines
           </h3>
           <div className="h-[280px] w-full">
-            {bottleData.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart 
-                  data={bottleData} 
-                  layout="vertical" 
-                  margin={{ left: 10, right: 30, top: 5, bottom: 5 }}
-                >
-                  <XAxis type="number" hide />
-                  <YAxis 
-                    type="category" 
-                    dataKey="name" 
-                    width={130}
-                    tick={{ fontSize: 11 }}
-                    axisLine={false}
-                    tickLine={false}
-                  />
-                  <Tooltip 
-                    formatter={(value: number, _, props) => [
-                      `${value} bottles`,
-                      props.payload.fullName + (props.payload.vintage ? ` (${props.payload.vintage})` : '')
-                    ]}
-                    contentStyle={{ 
-                      borderRadius: '12px', 
-                      border: 'none',
-                      boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
-                    }}
-                  />
-                  <Bar 
-                    dataKey="bottles" 
-                    fill="hsl(348, 83%, 47%)"
-                    radius={[0, 6, 6, 0]}
-                    barSize={20}
-                  />
-                </BarChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="h-full flex items-center justify-center text-muted-foreground text-sm">
-                No bottle data available
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Wine List */}
-        {bottleData.length > 0 && (
-          <div className="mt-4 space-y-2">
-            <h3 className="text-sm font-medium">Quick Overview</h3>
-            <div className="space-y-1.5 max-h-[150px] overflow-y-auto">
-              {bottleData.slice(0, 5).map((wine, index) => (
+          {bottleData.slice(0, 5).map((wine, index) => (
                 <div 
                   key={index}
                   className="flex items-center justify-between py-1.5 px-3 bg-muted/20 rounded-lg text-sm"
@@ -163,9 +115,8 @@ export function BottlesAnalyticsModal({ open, onOpenChange, wines }: BottlesAnal
                   </span>
                 </div>
               ))}
-            </div>
           </div>
-        )}
+        </div>
       </DialogContent>
     </Dialog>
   );

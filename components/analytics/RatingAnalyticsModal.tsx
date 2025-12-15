@@ -8,7 +8,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Wine } from "@/components/WineCard";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import {
   BarChart,
   Bar,
@@ -18,7 +18,8 @@ import {
   ResponsiveContainer,
   Cell,
 } from "recharts";
-import { Star, TrendingUp, Award } from "lucide-react";
+import { Star, TrendingUp, Award, Wine as WineIcon } from "lucide-react";
+import Image from "next/image";
 
 interface RatingAnalyticsModalProps {
   open: boolean;
@@ -27,6 +28,36 @@ interface RatingAnalyticsModalProps {
 }
 
 export function RatingAnalyticsModal({ open, onOpenChange, wines }: RatingAnalyticsModalProps) {
+  const [selectedRange, setSelectedRange] = useState<string | null>(null);
+
+  // Calculate detailed rating breakdown for each range
+  const getRatingBreakdown = (range: string) => {
+    const breakdown: Record<string, number> = {};
+    
+    wines.forEach((wine) => {
+      const score = wine.score;
+      if (score === null || score === undefined) return;
+      
+      let inRange = false;
+      if (range === "5.0" && score >= 5.0) inRange = true;
+      else if (range === "4.5-4.9" && score >= 4.5 && score < 5.0) inRange = true;
+      else if (range === "4.0-4.4" && score >= 4.0 && score < 4.5) inRange = true;
+      else if (range === "3.5-3.9" && score >= 3.5 && score < 4.0) inRange = true;
+      else if (range === "3.0-3.4" && score >= 3.0 && score < 3.5) inRange = true;
+      else if (range === "2.0-2.9" && score >= 2.0 && score < 3.0) inRange = true;
+      else if (range === "1.0-1.9" && score >= 1.0 && score < 2.0) inRange = true;
+      
+      if (inRange) {
+        const rounded = score.toFixed(1);
+        breakdown[rounded] = (breakdown[rounded] || 0) + 1;
+      }
+    });
+    
+    return Object.entries(breakdown)
+      .map(([rating, count]) => ({ rating: parseFloat(rating), count }))
+      .sort((a, b) => b.rating - a.rating);
+  };
+
   // Calculate rating distribution
   const ratingData = useMemo(() => {
     const ratingBuckets: Record<string, number> = {
@@ -105,18 +136,37 @@ export function RatingAnalyticsModal({ open, onOpenChange, wines }: RatingAnalyt
         </DialogHeader>
 
         {/* Insights */}
-        <div className="bg-muted/30 rounded-xl p-4 space-y-1">
-          {stats.topRated && (
-            <p className="text-sm text-muted-foreground">
-              Top-rated wine:{" "}
-              <span className="font-medium text-foreground">
-                {stats.topRated.name}
-                {stats.topRated.vintage && ` (${stats.topRated.vintage})`}
-              </span>
-              {" "}— <Star className="inline w-3 h-3 text-yellow-500 fill-yellow-500" /> {stats.topRated.score?.toFixed(1)}
-            </p>
-          )}
-        </div>
+        {stats.topRated && (
+          <div className="bg-muted/30 rounded-xl p-4">
+            <div className="flex items-center gap-3">
+              {stats.topRated.label_image_url ? (
+                <div className="relative w-16 h-20 rounded-lg overflow-hidden flex-shrink-0 bg-muted">
+                  <Image
+                    src={stats.topRated.label_image_url}
+                    alt={stats.topRated.name}
+                    fill
+                    className="object-cover"
+                  />
+                </div>
+              ) : (
+                <div className="w-16 h-20 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
+                  <WineIcon className="w-8 h-8 text-muted-foreground" />
+                </div>
+              )}
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-foreground truncate">
+                  {stats.topRated.name}
+                  {stats.topRated.vintage && ` (${stats.topRated.vintage})`}
+                </p>
+                <p className="text-sm text-muted-foreground flex items-center gap-1 mt-1">
+                  <Star className="w-3 h-3 text-yellow-500 fill-yellow-500" />
+                  <span className="font-medium text-foreground">{stats.topRated.score?.toFixed(1)}</span>
+                  <span className="text-xs">Top-rated wine</span>
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Stats Cards */}
         <div className="grid grid-cols-3 gap-3 mt-4">
@@ -161,7 +211,7 @@ export function RatingAnalyticsModal({ open, onOpenChange, wines }: RatingAnalyt
                     tickLine={false}
                   />
                   <Tooltip 
-                    formatter={(value: number) => [`${value} wines`, 'Count']}
+                    formatter={(value: number | undefined) => [`${value || 0} wines`, 'Count']}
                     contentStyle={{ 
                       borderRadius: '12px', 
                       border: 'none',
@@ -188,6 +238,51 @@ export function RatingAnalyticsModal({ open, onOpenChange, wines }: RatingAnalyt
               </div>
             )}
           </div>
+          
+          {/* Clickable rating intervals */}
+          <div className="space-y-2 mt-3">
+            {ratingData.map((entry) => {
+              const breakdown = getRatingBreakdown(entry.range);
+              const isExpanded = selectedRange === entry.range;
+              
+              return (
+                <div key={entry.range} className="border border-border/50 rounded-lg overflow-hidden">
+                  <button
+                    onClick={() => setSelectedRange(isExpanded ? null : entry.range)}
+                    className="w-full flex items-center justify-between p-2.5 bg-muted/20 hover:bg-muted/30 transition-colors"
+                  >
+                    <div className="flex items-center gap-2">
+                      <div 
+                        className="w-3 h-3 rounded-full"
+                        style={{ backgroundColor: getBarColor(entry.range) }}
+                      />
+                      <span className="text-sm font-medium">{entry.range}</span>
+                      <span className="text-xs text-muted-foreground">({entry.count} wines)</span>
+                    </div>
+                    <span className="text-xs text-muted-foreground">
+                      {isExpanded ? "▼" : "▶"}
+                    </span>
+                  </button>
+                  
+                  {isExpanded && breakdown.length > 0 && (
+                    <div className="p-3 bg-muted/10 border-t border-border/50">
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                        {breakdown.map((item) => (
+                          <div 
+                            key={item.rating}
+                            className="flex items-center justify-between py-1.5 px-2 bg-background rounded text-xs"
+                          >
+                            <span className="text-muted-foreground">{item.rating.toFixed(1)}</span>
+                            <span className="font-medium text-primary">{item.count}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         </div>
 
         {/* Top Rated Wines */}
@@ -197,7 +292,7 @@ export function RatingAnalyticsModal({ open, onOpenChange, wines }: RatingAnalyt
               <Award className="w-4 h-4 text-yellow-500" />
               Your Top Rated Wines
             </h3>
-            <div className="space-y-1.5 max-h-[150px] overflow-y-auto">
+            <div className="space-y-1.5">
               {wines
                 .filter(w => w.score !== null && w.score !== undefined)
                 .sort((a, b) => (b.score || 0) - (a.score || 0))
