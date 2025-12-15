@@ -521,11 +521,11 @@ export function EditWineDialog({ wine, open, onOpenChange, onSave, onImageUpdate
             <Label htmlFor="edit-notes" className="text-sm font-medium">Notes</Label>
             <textarea
               id="edit-notes"
-              className="elegant-input w-full min-h-[80px] rounded-xl resize-none"
+              className="elegant-input w-full min-h-[180px] rounded-xl resize-y p-4 text-sm leading-relaxed"
               value={formData.notes}
               onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
               placeholder="Your notes..."
-              rows={3}
+              rows={8}
             />
           </div>
 
