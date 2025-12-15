@@ -2,11 +2,17 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Wine, Package, Star, Plus, Minus } from "lucide-react";
+import { Wine, Package, Star, Plus, Minus, FileText, X, Sparkles } from "lucide-react";
 import Image from "next/image";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/lib/supabaseClient";
 import { cn } from "@/lib/utils";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 export interface Wine {
   id: string;
@@ -180,8 +186,10 @@ function StarRating({ score }: { score: number }) {
 
 export function WineCard({ wine, onDelete, onEdit, onImageUpdate, onQuantityUpdate, isRanOut = false }: WineCardProps) {
   const [updatingQuantity, setUpdatingQuantity] = useState(false);
+  const [notesOpen, setNotesOpen] = useState(false);
   const { toast } = useToast();
   const isPremium = wine.score !== null && wine.score !== undefined && wine.score >= 4.5;
+  const hasNotes = wine.notes && wine.notes.trim().length > 0;
 
   const handleQuantityChange = async (e: React.MouseEvent, delta: number) => {
     e.stopPropagation();
@@ -265,6 +273,20 @@ export function WineCard({ wine, onDelete, onEdit, onImageUpdate, onQuantityUpda
               <CountryFlag countryCode={getCountryCode(wine.country)} />
             </div>
           )}
+
+          {/* Notes Button - Bottom Right */}
+          {hasNotes && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setNotesOpen(true);
+              }}
+              className="absolute bottom-3 right-3 w-8 h-8 rounded-full bg-white/90 backdrop-blur-sm shadow-lg flex items-center justify-center hover:bg-white hover:scale-110 active:scale-95 transition-all duration-200 touch-manipulation z-10"
+              aria-label="View AI notes"
+            >
+              <Sparkles className="w-4 h-4 text-primary" />
+            </button>
+          )}
         </div>
 
         {/* Content */}
@@ -343,6 +365,39 @@ export function WineCard({ wine, onDelete, onEdit, onImageUpdate, onQuantityUpda
           </div>
         </div>
       </div>
+
+      {/* Notes Dialog */}
+      <Dialog open={notesOpen} onOpenChange={setNotesOpen}>
+        <DialogContent className="max-w-md max-h-[85vh] p-0 gap-0 rounded-3xl">
+          <DialogHeader className="p-6 pb-4 border-b border-border/30">
+            <div className="flex items-center justify-between">
+              <DialogTitle className="font-serif text-xl flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-primary" />
+                AI Notes
+              </DialogTitle>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setNotesOpen(false)}
+                className="w-9 h-9 rounded-full"
+              >
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
+            <p className="text-sm text-muted-foreground mt-1 font-medium">
+              {wine.name}
+              {wine.vintage && ` • ${wine.vintage}`}
+            </p>
+          </DialogHeader>
+          <div className="p-6 overflow-y-auto">
+            <div className="prose prose-sm max-w-none">
+              <p className="text-base leading-relaxed text-foreground whitespace-pre-wrap">
+                {wine.notes}
+              </p>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
