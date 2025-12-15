@@ -11,7 +11,7 @@ import {
   LogOut, 
   User, 
   Mail, 
-  Calendar,
+  Globe,
   Package,
   Star,
   Settings,
@@ -29,6 +29,13 @@ import { supabase } from "@/lib/supabaseClient";
 import { BottomNav } from "@/components/BottomNav";
 import Image from "next/image";
 import type { Wine } from "@/components/WineCard";
+import { StatBox } from "@/components/StatBox";
+import {
+  WinesAnalyticsModal,
+  BottlesAnalyticsModal,
+  RatingAnalyticsModal,
+  CountriesAnalyticsModal,
+} from "@/components/analytics";
 
 export default function ProfilePage() {
   const { user, profile, loading, signOut, refreshProfile } = useAuth();
@@ -44,6 +51,12 @@ export default function ProfilePage() {
   });
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+
+  // Analytics modal states
+  const [winesModalOpen, setWinesModalOpen] = useState(false);
+  const [bottlesModalOpen, setBottlesModalOpen] = useState(false);
+  const [ratingModalOpen, setRatingModalOpen] = useState(false);
+  const [countriesModalOpen, setCountriesModalOpen] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -367,34 +380,30 @@ export default function ProfilePage() {
 
           {/* Stats Grid */}
           <div className="grid grid-cols-2 gap-4">
-            <div className="bg-muted/30 rounded-xl p-4 text-center">
-              <div className="flex items-center justify-center gap-2 mb-1">
-                <WineIcon className="w-4 h-4 text-primary" />
-                <span className="text-2xl font-bold">{totalWines}</span>
-              </div>
-              <p className="text-xs text-muted-foreground">Wines</p>
-            </div>
-            <div className="bg-muted/30 rounded-xl p-4 text-center">
-              <div className="flex items-center justify-center gap-2 mb-1">
-                <Package className="w-4 h-4 text-primary" />
-                <span className="text-2xl font-bold">{totalBottles}</span>
-              </div>
-              <p className="text-xs text-muted-foreground">Bottles</p>
-            </div>
-            <div className="bg-muted/30 rounded-xl p-4 text-center">
-              <div className="flex items-center justify-center gap-2 mb-1">
-                <Star className="w-4 h-4 text-yellow-500" />
-                <span className="text-2xl font-bold">{avgRating > 0 ? avgRating.toFixed(1) : "—"}</span>
-              </div>
-              <p className="text-xs text-muted-foreground">Avg Rating</p>
-            </div>
-            <div className="bg-muted/30 rounded-xl p-4 text-center">
-              <div className="flex items-center justify-center gap-2 mb-1">
-                <Calendar className="w-4 h-4 text-primary" />
-                <span className="text-2xl font-bold">{uniqueCountries}</span>
-              </div>
-              <p className="text-xs text-muted-foreground">Countries</p>
-            </div>
+            <StatBox
+              icon={<WineIcon className="w-4 h-4 text-primary" />}
+              value={totalWines}
+              label="Wines"
+              onClick={() => setWinesModalOpen(true)}
+            />
+            <StatBox
+              icon={<Package className="w-4 h-4 text-primary" />}
+              value={totalBottles}
+              label="Bottles"
+              onClick={() => setBottlesModalOpen(true)}
+            />
+            <StatBox
+              icon={<Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />}
+              value={avgRating > 0 ? avgRating.toFixed(1) : "—"}
+              label="Avg Rating"
+              onClick={() => setRatingModalOpen(true)}
+            />
+            <StatBox
+              icon={<Globe className="w-4 h-4 text-primary" />}
+              value={uniqueCountries}
+              label="Countries"
+              onClick={() => setCountriesModalOpen(true)}
+            />
           </div>
         </div>
 
@@ -432,6 +441,28 @@ export default function ProfilePage() {
       </main>
 
       <BottomNav />
+
+      {/* Analytics Modals */}
+      <WinesAnalyticsModal
+        open={winesModalOpen}
+        onOpenChange={setWinesModalOpen}
+        wines={wines}
+      />
+      <BottlesAnalyticsModal
+        open={bottlesModalOpen}
+        onOpenChange={setBottlesModalOpen}
+        wines={wines}
+      />
+      <RatingAnalyticsModal
+        open={ratingModalOpen}
+        onOpenChange={setRatingModalOpen}
+        wines={wines}
+      />
+      <CountriesAnalyticsModal
+        open={countriesModalOpen}
+        onOpenChange={setCountriesModalOpen}
+        wines={wines}
+      />
     </div>
   );
 }
