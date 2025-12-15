@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/components/AuthProvider";
 import { WineCard, type Wine } from "@/components/WineCard";
 import { Button } from "@/components/ui/button";
-import { Plus, LogIn, Wine as WineIcon, Camera, LogOut, ChevronRight } from "lucide-react";
+import { Plus, LogIn, Wine as WineIcon, Camera, LogOut } from "lucide-react";
 import Link from "next/link";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/lib/supabaseClient";
@@ -12,7 +12,6 @@ import { ConfigCheck } from "@/components/ConfigCheck";
 import { EditWineDialog } from "@/components/EditWineDialog";
 import { WineFilters } from "@/components/WineFilters";
 import { BottomNav } from "@/components/BottomNav";
-import Image from "next/image";
 
 // Sort wines: by country (alphabetically), then by name (alphabetically) within each country
 function sortWinesByCountryAndName(wines: Wine[]): Wine[] {
@@ -44,11 +43,6 @@ export default function Home() {
   // Filter active wines
   const filteredActiveWines = filteredWines.filter(w => (w.quantity || 0) > 0);
   const filteredRanOutWines = filteredWines.filter(w => (w.quantity || 0) === 0);
-
-  // Get recent wines (last 5 added)
-  const recentWines = [...activeWines]
-    .sort((a, b) => new Date(b.date_added || 0).getTime() - new Date(a.date_added || 0).getTime())
-    .slice(0, 3);
 
   useEffect(() => {
     if (user) {
@@ -278,56 +272,6 @@ export default function Home() {
           </div>
         ) : (
           <div className="space-y-8">
-            {/* Recent Scans Section */}
-            {recentWines.length > 0 && (
-              <section className="animate-fade-in-up">
-                <div className="section-header">
-                  <h2 className="section-title">Recent Scans</h2>
-                  <button className="see-all-link flex items-center gap-1">
-                    See All <ChevronRight className="w-4 h-4" />
-                  </button>
-                </div>
-                <div className="space-y-3">
-                  {recentWines.map((wine) => (
-                    <div
-                      key={wine.id}
-                      className="wine-list-item"
-                      onClick={() => handleEdit(wine)}
-                    >
-                      <div className="wine-list-thumbnail">
-                        {wine.label_image_url ? (
-                          <Image
-                            src={wine.label_image_url}
-                            alt={wine.name}
-                            width={48}
-                            height={64}
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center bg-muted">
-                            <WineIcon className="w-6 h-6 text-muted-foreground" />
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium truncate">{wine.name}</p>
-                        <p className="text-sm text-muted-foreground truncate">
-                          {wine.vintage && `${wine.vintage} • `}
-                          {wine.region || wine.country || "Unknown region"}
-                        </p>
-                      </div>
-                      {wine.score !== null && wine.score !== undefined && (
-                        <div className="flex items-center gap-1 text-sm">
-                          <span className="text-yellow-500">★</span>
-                          <span className="font-medium">{wine.score.toFixed(1)}</span>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </section>
-            )}
-
             {/* Filters */}
             <WineFilters 
               wines={wines} 

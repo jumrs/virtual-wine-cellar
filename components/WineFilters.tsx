@@ -290,6 +290,12 @@ export function WineFilters({ wines, onFilterChange }: WineFiltersProps) {
         }
         return (a.name || "").localeCompare(b.name || "");
       });
+    } else if (scoreSort === "last-added") {
+      sortedFiltered = [...filtered].sort((a, b) => {
+        const dateA = a.date_added ? new Date(a.date_added).getTime() : 0;
+        const dateB = b.date_added ? new Date(b.date_added).getTime() : 0;
+        return dateB - dateA; // Most recent first
+      });
     } else {
       sortedFiltered = sortWinesByCountryAndName(filtered);
     }
@@ -469,7 +475,8 @@ export function WineFilters({ wines, onFilterChange }: WineFiltersProps) {
                 <SelectValue placeholder="Sort" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="default">All Ratings</SelectItem>
+                <SelectItem value="default">Default</SelectItem>
+                <SelectItem value="last-added">Last Added</SelectItem>
                 <SelectItem value="high-to-low">Rating: High → Low</SelectItem>
                 <SelectItem value="low-to-high">Rating: Low → High</SelectItem>
               </SelectContent>
