@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -10,7 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { X, Search, SlidersHorizontal, ChevronDown } from "lucide-react";
+import { X, Search, SlidersHorizontal, ChevronDown, Pin, PinOff } from "lucide-react";
 import type { Wine } from "./WineCard";
 import { cn } from "@/lib/utils";
 
@@ -33,14 +33,80 @@ interface WineFiltersProps {
   onFilterChange: (filteredWines: Wine[]) => void;
 }
 
+const STORAGE_KEY = "wine-filters-persistent";
+
+interface PersistentFilters {
+  selectedCountry: string;
+  selectedGrape: string;
+  selectedType: string;
+  selectedVintage: string;
+  scoreSort: string;
+  searchQuery: string;
+}
+
 export function WineFilters({ wines, onFilterChange }: WineFiltersProps) {
-  const [selectedCountry, setSelectedCountry] = useState<string>("all");
-  const [selectedGrape, setSelectedGrape] = useState<string>("all");
-  const [selectedType, setSelectedType] = useState<string>("all");
-  const [selectedVintage, setSelectedVintage] = useState<string>("all");
-  const [scoreSort, setScoreSort] = useState<string>("default");
-  const [searchQuery, setSearchQuery] = useState("");
+  // Load persistent filters from localStorage on mount
+  const loadPersistentFilters = (): PersistentFilters | null => {
+    if (typeof window === "undefined") return null;
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (stored) {
+        return JSON.parse(stored);
+      }
+    } catch (error) {
+      console.error("Error loading persistent filters:", error);
+    }
+    return null;
+  };
+
+  // Save filters to localStorage
+  const savePersistentFilters = (filters: PersistentFilters) => {
+    if (typeof window === "undefined") return;
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(filters));
+    } catch (error) {
+      console.error("Error saving persistent filters:", error);
+    }
+  };
+
+  // Clear persistent filters from localStorage
+  const clearPersistentFilters = () => {
+    if (typeof window === "undefined") return;
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+    } catch (error) {
+      console.error("Error clearing persistent filters:", error);
+    }
+  };
+
+  // Cache the loaded persistent filters to avoid multiple localStorage reads
+  const persistentFiltersRef = useRef<PersistentFilters | null>(null);
+  if (persistentFiltersRef.current === null) {
+    persistentFiltersRef.current = loadPersistentFilters();
+  }
+  const persistentFilters = persistentFiltersRef.current;
+
+  // Initialize state from persistent filters or defaults
+  const [selectedCountry, setSelectedCountry] = useState<string>(
+    persistentFilters?.selectedCountry || "all"
+  );
+  const [selectedGrape, setSelectedGrape] = useState<string>(
+    persistentFilters?.selectedGrape || "all"
+  );
+  const [selectedType, setSelectedType] = useState<string>(
+    persistentFilters?.selectedType || "all"
+  );
+  const [selectedVintage, setSelectedVintage] = useState<string>(
+    persistentFilters?.selectedVintage || "all"
+  );
+  const [scoreSort, setScoreSort] = useState<string>(
+    persistentFilters?.scoreSort || "default"
+  );
+  const [searchQuery, setSearchQuery] = useState(
+    persistentFilters?.searchQuery || ""
+  );
   const [showFilters, setShowFilters] = useState(false);
+  const [isPersistent, setIsPersistent] = useState<boolean>(!!persistentFilters);
 
   // Extract unique values for filters
   const uniqueCountries = useMemo(() => {
@@ -78,6 +144,43 @@ export function WineFilters({ wines, onFilterChange }: WineFiltersProps) {
       .sort((a, b) => b - a);
     return vintages;
   }, [wines]);
+
+  // Save filters to localStorage when persistent and filters change
+  useEffect(() => {
+    if (isPersistent) {
+      const filters: PersistentFilters = {
+        selectedCountry,
+        selectedGrape,
+        selectedType,
+        selectedVintage,
+        scoreSort,
+        searchQuery,
+      };
+      savePersistentFilters(filters);
+    }
+  }, [isPersistent, selectedCountry, selectedGrape, selectedType, selectedVintage, scoreSort, searchQuery]);
+
+  // Toggle persistence
+  const togglePersistence = () => {
+    const newIsPersistent = !isPersistent;
+    setIsPersistent(newIsPersistent);
+    
+    if (newIsPersistent) {
+      // Save current filters
+      const filters: PersistentFilters = {
+        selectedCountry,
+        selectedGrape,
+        selectedType,
+        selectedVintage,
+        scoreSort,
+        searchQuery,
+      };
+      savePersistentFilters(filters);
+    } else {
+      // Clear persistent filters
+      clearPersistentFilters();
+    }
+  };
 
   // Apply filters
   useEffect(() => {
@@ -177,6 +280,11 @@ export function WineFilters({ wines, onFilterChange }: WineFiltersProps) {
     setSelectedVintage("all");
     setScoreSort("default");
     setSearchQuery("");
+    // Clear persistent filters if they exist
+    if (isPersistent) {
+      clearPersistentFilters();
+      setIsPersistent(false);
+    }
   };
 
   return (
@@ -220,6 +328,25 @@ export function WineFilters({ wines, onFilterChange }: WineFiltersProps) {
             showFilters && "rotate-180"
           )} />
         </Button>
+        {/* Persistence Toggle */}
+        {hasActiveFilters && (
+          <Button
+            variant={isPersistent ? "default" : "outline"}
+            size="icon"
+            className={cn(
+              "h-11 w-11 rounded-xl",
+              isPersistent && "bg-primary text-primary-foreground"
+            )}
+            onClick={togglePersistence}
+            title={isPersistent ? "Filters are saved. Click to unsave." : "Save filters as default"}
+          >
+            {isPersistent ? (
+              <Pin className="w-4 h-4" />
+            ) : (
+              <PinOff className="w-4 h-4" />
+            )}
+          </Button>
+        )}
       </div>
 
       {/* Collapsible Filters */}
