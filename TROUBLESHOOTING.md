@@ -86,3 +86,4 @@ CREATE POLICY "Anyone can view wine labels"
 Check the browser console (F12) and terminal logs for specific error messages. The improved error handling should now show you exactly what's wrong!
 
 
+
