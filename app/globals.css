@@ -248,7 +248,7 @@
   
   /* Bottom navigation */
   .bottom-nav {
-    @apply fixed bottom-0 left-0 right-0 bg-white border-t border-border/50 z-50;
+    @apply fixed bottom-0 left-0 right-0 bg-card border-t border-border/50 z-50;
     padding-top: 0.5rem;
     padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 0.5rem);
     /* Set exact height: 70px base + safe area */
@@ -369,19 +369,11 @@
     /* Mobile: padding equals bottom nav height exactly (70px + safe area) */
     padding-bottom: calc(70px + env(safe-area-inset-bottom, 0px)) !important;
   }
-  
-  @media (min-width: 768px) {
-    .page-container {
-      padding-bottom: 2rem !important;
-    }
-  }
-  
-  /* Ensure main content can scroll properly on mobile */
-  @media (max-width: 767px) {
-    main.page-container {
-      /* Match exact bottom nav height */
-      padding-bottom: calc(70px + env(safe-area-inset-bottom, 0px)) !important;
-    }
+
+  /* Ensure main content can scroll properly on all screen sizes */
+  main.page-container {
+    /* Match exact bottom nav height */
+    padding-bottom: calc(70px + env(safe-area-inset-bottom, 0px)) !important;
   }
   
   /* Fade in animation */
