@@ -373,7 +373,7 @@ export function WineCard({ wine, onDelete, onEdit, onImageUpdate, onQuantityUpda
             <div className="flex items-center justify-between">
               <DialogTitle className="font-serif text-xl flex items-center gap-2">
                 <Sparkles className="w-5 h-5 text-primary" />
-                AI Notes
+                Notes
               </DialogTitle>
               <Button
                 variant="ghost"
