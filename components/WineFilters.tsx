@@ -119,12 +119,30 @@ export function WineFilters({ wines, onFilterChange }: WineFiltersProps) {
   }, [wines]);
 
   const uniqueGrapes = useMemo(() => {
-    const grapes = wines
-      .map((w) => w.grape)
-      .filter((g): g is string => Boolean(g))
-      .filter((g, i, arr) => arr.indexOf(g) === i)
-      .sort();
-    return grapes;
+    // Collect grapes from both old 'grape' field and new 'grapes' array
+    const grapeSet = new Set<string>();
+    
+    wines.forEach((w) => {
+      // Add grapes from array
+      if (w.grapes && Array.isArray(w.grapes)) {
+        w.grapes.forEach((g) => {
+          if (g) grapeSet.add(g);
+        });
+      }
+      // Also include legacy grape field if grapes array is empty
+      else if (w.grape) {
+        // Split by common delimiters in case it's a blend string
+        const grapes = w.grape.split(/[\/,+]|\s+and\s+/i).map(g => g.trim()).filter(g => g);
+        grapes.forEach(g => grapeSet.add(g));
+      }
+    });
+    
+    return Array.from(grapeSet).sort();
+  }, [wines]);
+  
+  // Count blends for filter option
+  const blendCount = useMemo(() => {
+    return wines.filter((w) => w.is_blend || (w.grapes && w.grapes.length > 1)).length;
   }, [wines]);
 
   const uniqueTypes = useMemo(() => {
@@ -193,6 +211,7 @@ export function WineFilters({ wines, onFilterChange }: WineFiltersProps) {
           wine.name.toLowerCase().includes(query) ||
           wine.type?.toLowerCase().includes(query) ||
           wine.grape?.toLowerCase().includes(query) ||
+          wine.grapes?.some(g => g.toLowerCase().includes(query)) ||
           wine.region?.toLowerCase().includes(query) ||
           wine.country?.toLowerCase().includes(query) ||
           wine.notes?.toLowerCase().includes(query)
@@ -204,7 +223,28 @@ export function WineFilters({ wines, onFilterChange }: WineFiltersProps) {
     }
 
     if (selectedGrape !== "all") {
-      filtered = filtered.filter((wine) => wine.grape === selectedGrape);
+      if (selectedGrape === "blend") {
+        // Filter for blends only
+        filtered = filtered.filter((wine) => 
+          wine.is_blend || (wine.grapes && wine.grapes.length > 1)
+        );
+      } else {
+        // Filter wines that contain the selected grape
+        filtered = filtered.filter((wine) => {
+          // Check in grapes array first
+          if (wine.grapes && Array.isArray(wine.grapes)) {
+            return wine.grapes.some(g => 
+              g.toLowerCase() === selectedGrape.toLowerCase()
+            );
+          }
+          // Fall back to legacy grape field
+          if (wine.grape) {
+            const grapes = wine.grape.split(/[\/,+]|\s+and\s+/i).map(g => g.trim().toLowerCase());
+            return grapes.includes(selectedGrape.toLowerCase());
+          }
+          return false;
+        });
+      }
     }
 
     if (selectedType !== "all") {
@@ -393,6 +433,11 @@ export function WineFilters({ wines, onFilterChange }: WineFiltersProps) {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Grapes</SelectItem>
+                {blendCount > 0 && (
+                  <SelectItem value="blend">
+                    Blends ({blendCount})
+                  </SelectItem>
+                )}
                 {uniqueGrapes.map((grape) => (
                   <SelectItem key={grape} value={grape}>
                     {grape}

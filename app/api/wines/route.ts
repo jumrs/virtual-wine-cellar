@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
     let wines: any[] | null = null;
     let error: any = null;
     
-    // First attempt: try with quantity column
+    // First attempt: try with quantity column and new grapes fields
     const { data: winesWithQuantity, error: errorWithQuantity } = await authenticatedSupabase
       .from("user_wines")
       .select(`
@@ -43,6 +43,8 @@ export async function GET(request: NextRequest) {
           name,
           type,
           grape,
+          grapes,
+          is_blend,
           region,
           country,
           vintage,
@@ -65,8 +67,12 @@ export async function GET(request: NextRequest) {
           wines (
             id,
             name,
+            type,
             grape,
+            grapes,
+            is_blend,
             region,
+            country,
             vintage,
             score,
             label_image_url,
@@ -93,6 +99,8 @@ export async function GET(request: NextRequest) {
       name: uw.wines.name,
       type: uw.wines.type,
       grape: uw.wines.grape,
+      grapes: uw.wines.grapes ?? [],
+      is_blend: uw.wines.is_blend ?? (uw.wines.grapes?.length > 1 || false),
       region: uw.wines.region,
       country: uw.wines.country,
       vintage: uw.wines.vintage,
@@ -181,10 +189,17 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Process grapes - ensure it's an array
+    const grapes = Array.isArray(wineData.grapes) ? wineData.grapes : 
+      (wineData.grape ? wineData.grape.split(/[\/,+]|\s+and\s+/i).map((g: string) => g.trim()).filter((g: string) => g) : []);
+    const is_blend = grapes.length > 1;
+    
     // Insert wine into database
     console.log("Inserting wine with data:", {
       name: wineData.name,
       grape: wineData.grape,
+      grapes: grapes,
+      is_blend: is_blend,
       region: wineData.region,
       vintage: wineData.vintage,
       score: wineData.score,
@@ -197,7 +212,9 @@ export async function POST(request: NextRequest) {
       .insert({
         name: wineData.name,
         type: wineData.type || null,
-        grape: wineData.grape || null,
+        grape: grapes.length > 0 ? grapes.join(", ") : null, // Legacy field
+        grapes: grapes,
+        is_blend: is_blend,
         region: wineData.region || null,
         country: wineData.country || null,
         vintage: wineData.vintage || null,
@@ -287,7 +304,12 @@ export async function PUT(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { name, type, grape, region, country, vintage, score, notes, quantity } = body;
+    const { name, type, grape, grapes, is_blend, region, country, vintage, score, notes, quantity } = body;
+    
+    // Process grapes - ensure it's an array
+    const processedGrapes = Array.isArray(grapes) ? grapes : 
+      (grape ? grape.split(/[\/,+]|\s+and\s+/i).map((g: string) => g.trim()).filter((g: string) => g) : []);
+    const processedIsBlend = processedGrapes.length > 1;
 
     if (!name) {
       return NextResponse.json(
@@ -320,7 +342,9 @@ export async function PUT(request: NextRequest) {
       .update({
         name,
         type: type || null,
-        grape: grape || null,
+        grape: processedGrapes.length > 0 ? processedGrapes.join(", ") : null, // Legacy field
+        grapes: processedGrapes,
+        is_blend: processedIsBlend,
         region: region || null,
         country: country || null,
         vintage: vintage || null,

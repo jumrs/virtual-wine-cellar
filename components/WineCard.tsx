@@ -14,7 +14,9 @@ export interface Wine {
   type?: string;
   region?: string;
   country?: string;
-  grape?: string;
+  grape?: string; // Legacy field - kept for backward compatibility
+  grapes?: string[]; // New: array of grape varieties
+  is_blend?: boolean; // New: true when grapes.length > 1
   vintage?: number;
   score?: number | null;
   label_image_url?: string;
@@ -278,6 +280,26 @@ export function WineCard({ wine, onDelete, onEdit, onImageUpdate, onQuantityUpda
               {wine.region && <span>{wine.region}</span>}
             </p>
           </div>
+
+          {/* Grape Tags */}
+          {wine.grapes && wine.grapes.length > 0 && (
+            <div className="flex flex-wrap gap-1">
+              {wine.grapes.slice(0, 3).map((grape) => (
+                <span
+                  key={grape}
+                  className="px-1.5 py-0.5 bg-primary/10 text-primary text-[10px] rounded-full whitespace-nowrap"
+                  title={grape}
+                >
+                  {grape}
+                </span>
+              ))}
+              {wine.grapes.length > 3 && (
+                <span className="px-1.5 py-0.5 bg-muted text-muted-foreground text-[10px] rounded-full">
+                  +{wine.grapes.length - 3}
+                </span>
+              )}
+            </div>
+          )}
 
           {/* Rating & Quantity */}
           <div className="flex items-center justify-between">
