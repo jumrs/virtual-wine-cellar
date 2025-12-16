@@ -79,5 +79,13 @@ export interface WineFilters {
 export type SortOption = "default" | "last-added" | "high-to-low" | "low-to-high";
 
 /** Wine type badge variants */
-export type WineTypeBadge = "red" | "white" | "rose" | "sparkling" | "default";
+export type WineTypeBadge =
+  | "red"
+  | "white"
+  | "rose"
+  | "sparkling"
+  | "dessert"
+  | "fortified"
+  | "orange"
+  | "default";
 

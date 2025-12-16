@@ -12,12 +12,31 @@ import {
   getQueryParam,
   logApiError,
 } from "@/lib/apiUtils";
+import {
+  checkRateLimit,
+  RATE_LIMITS,
+  getClientIdentifier,
+  sanitizeWineData,
+  validateImageFile,
+  generateSafeFilename,
+  isValidUUID,
+} from "@/lib/security";
 
 /**
  * GET /api/wines - Fetch user's wine collection
  */
 export async function GET(request: NextRequest) {
   try {
+    // Rate limiting
+    const clientId = getClientIdentifier(request);
+    const rateLimit = checkRateLimit(`wines:get:${clientId}`, RATE_LIMITS.standard);
+    if (!rateLimit.allowed) {
+      return errorResponse(
+        `Rate limit exceeded. Try again in ${rateLimit.retryAfter} seconds.`,
+        429
+      );
+    }
+
     const auth = await authenticateRequest(request);
     if (isAuthError(auth)) return auth;
 
@@ -86,29 +105,57 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
+    // Rate limiting
+    const clientId = getClientIdentifier(request);
+    const rateLimit = checkRateLimit(`wines:post:${clientId}`, RATE_LIMITS.upload);
+    if (!rateLimit.allowed) {
+      return errorResponse(
+        `Rate limit exceeded. Try again in ${rateLimit.retryAfter} seconds.`,
+        429
+      );
+    }
+
     const auth = await authenticateRequest(request);
     if (isAuthError(auth)) return auth;
 
     const { user, authenticatedSupabase } = auth;
 
     const formData = await request.formData();
-    const file = formData.get("image") as File;
+    const file = formData.get("image") as File | null;
     const wineDataStr = formData.get("wineData") as string;
 
     if (!wineDataStr) {
       return errorResponse("Missing wine data", 400);
     }
 
-    const wineData = JSON.parse(wineDataStr);
+    let rawWineData;
+    try {
+      rawWineData = JSON.parse(wineDataStr);
+    } catch {
+      return errorResponse("Invalid wine data format", 400);
+    }
+
+    // Sanitize wine data
+    const wineData = sanitizeWineData(rawWineData);
+
+    // Validate required field
+    if (!wineData.name || typeof wineData.name !== "string" || wineData.name.length < 1) {
+      return errorResponse("Wine name is required", 400);
+    }
 
     // Upload image if provided
     let imageUrl: string | undefined;
-    if (file) {
+    if (file && file.size > 0) {
+      // Validate file
+      const fileValidation = validateImageFile(file, 10);
+      if (!fileValidation.valid) {
+        return errorResponse(fileValidation.error || "Invalid image file", 400);
+      }
       imageUrl = await uploadWineImage(authenticatedSupabase, user.id, file);
     }
 
     // Process grapes array
-    const grapes = normalizeGrapes(wineData.grapes, wineData.grape);
+    const grapes = normalizeGrapes(wineData.grapes as string[] | undefined, wineData.grape as string | undefined);
     const isBlend = grapes.length > 1;
 
     // Insert wine
@@ -123,7 +170,7 @@ export async function POST(request: NextRequest) {
         region: wineData.region || null,
         country: wineData.country || null,
         vintage: wineData.vintage || null,
-        score: wineData.score || null,
+        score: wineData.score ?? null,
         label_image_url: imageUrl || null,
         notes: wineData.notes || null,
       })
@@ -164,6 +211,16 @@ export async function POST(request: NextRequest) {
  */
 export async function PUT(request: NextRequest) {
   try {
+    // Rate limiting
+    const clientId = getClientIdentifier(request);
+    const rateLimit = checkRateLimit(`wines:put:${clientId}`, RATE_LIMITS.standard);
+    if (!rateLimit.allowed) {
+      return errorResponse(
+        `Rate limit exceeded. Try again in ${rateLimit.retryAfter} seconds.`,
+        429
+      );
+    }
+
     const auth = await authenticateRequest(request);
     if (isAuthError(auth)) return auth;
 
@@ -174,8 +231,24 @@ export async function PUT(request: NextRequest) {
       return errorResponse("Wine ID is required", 400);
     }
 
-    const body = await request.json();
-    const { name, type, grape, grapes, region, country, vintage, score, notes, quantity } = body;
+    // Validate wine ID format
+    if (!isValidUUID(wineId)) {
+      return errorResponse("Invalid wine ID format", 400);
+    }
+
+    let body;
+    try {
+      body = await request.json();
+    } catch {
+      return errorResponse("Invalid request body", 400);
+    }
+
+    // Sanitize input data
+    const sanitized = sanitizeWineData(body);
+    const { name, type, grape, grapes, region, country, vintage, score, notes, quantity } = {
+      ...body,
+      ...sanitized,
+    };
 
     if (!name) {
       return errorResponse("Wine name is required", 400);
@@ -242,6 +315,16 @@ export async function PUT(request: NextRequest) {
  */
 export async function DELETE(request: NextRequest) {
   try {
+    // Rate limiting
+    const clientId = getClientIdentifier(request);
+    const rateLimit = checkRateLimit(`wines:delete:${clientId}`, RATE_LIMITS.standard);
+    if (!rateLimit.allowed) {
+      return errorResponse(
+        `Rate limit exceeded. Try again in ${rateLimit.retryAfter} seconds.`,
+        429
+      );
+    }
+
     const auth = await authenticateRequest(request);
     if (isAuthError(auth)) return auth;
 
@@ -250,6 +333,11 @@ export async function DELETE(request: NextRequest) {
 
     if (!wineId) {
       return errorResponse("Wine ID is required", 400);
+    }
+
+    // Validate wine ID format
+    if (!isValidUUID(wineId)) {
+      return errorResponse("Invalid wine ID format", 400);
     }
 
     const { error } = await authenticatedSupabase
@@ -299,13 +387,13 @@ function formatWineResponse(wines: any[] | null, hasQuantity: boolean) {
  * Upload wine image to storage
  */
 async function uploadWineImage(
-  supabase: any,
+  supabase: ReturnType<typeof import("@/lib/supabaseServer").createAuthenticatedClient>,
   userId: string,
   file: File
 ): Promise<string | undefined> {
   try {
-    const fileExt = file.name.split(".").pop();
-    const fileName = `${userId}/${Date.now()}.${fileExt}`;
+    // Generate safe filename
+    const fileName = generateSafeFilename(userId, file.name);
     const fileBuffer = await file.arrayBuffer();
 
     const { error: uploadError } = await supabase.storage
@@ -313,7 +401,9 @@ async function uploadWineImage(
       .upload(fileName, fileBuffer, { contentType: file.type });
 
     if (uploadError) {
-      console.error("Image upload error:", uploadError);
+      if (process.env.NODE_ENV === "development") {
+        console.error("Image upload error:", uploadError);
+      }
       return undefined;
     }
 
@@ -323,7 +413,9 @@ async function uploadWineImage(
 
     return urlData.publicUrl;
   } catch (error) {
-    console.error("Image upload failed:", error);
+    if (process.env.NODE_ENV === "development") {
+      console.error("Image upload failed:", error);
+    }
     return undefined;
   }
 }

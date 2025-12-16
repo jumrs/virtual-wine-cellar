@@ -1,9 +1,26 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabaseClient";
 import { createAuthenticatedClient } from "@/lib/supabaseServer";
+import {
+  checkRateLimit,
+  RATE_LIMITS,
+  getClientIdentifier,
+  sanitizeTextInput,
+  sanitizeErrorMessage,
+} from "@/lib/security";
 
 export async function POST(request: NextRequest) {
   try {
+    // Rate limiting
+    const clientId = getClientIdentifier(request);
+    const rateLimit = checkRateLimit(`wines:check-duplicate:${clientId}`, RATE_LIMITS.standard);
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { error: `Rate limit exceeded. Try again in ${rateLimit.retryAfter} seconds.` },
+        { status: 429 }
+      );
+    }
+
     const authHeader = request.headers.get("authorization");
     const accessToken = authHeader?.replace("Bearer ", "");
 
@@ -24,7 +41,17 @@ export async function POST(request: NextRequest) {
     }
 
     const authenticatedSupabase = createAuthenticatedClient(accessToken);
-    const body = await request.json();
+
+    let body;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json(
+        { error: "Invalid request body" },
+        { status: 400 }
+      );
+    }
+
     const { name, vintage, region, country } = body;
 
     if (!name) {
@@ -34,8 +61,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Normalize the wine name for comparison (lowercase, trim)
-    const normalizedName = name.toLowerCase().trim();
+    // Sanitize and normalize the wine name for comparison
+    const sanitizedName = sanitizeTextInput(name);
+    const normalizedName = sanitizedName.toLowerCase().trim();
 
     // Fetch user's wines
     const { data: userWines, error: fetchError } = await authenticatedSupabase
@@ -144,10 +172,12 @@ export async function POST(request: NextRequest) {
       isDuplicate: false,
       duplicates: [],
     });
-  } catch (error) {
-    console.error("Error in check-duplicate:", error);
+  } catch (error: unknown) {
+    if (process.env.NODE_ENV === "development") {
+      console.error("Error in check-duplicate:", error);
+    }
     return NextResponse.json(
-      { error: "Internal server error" },
+      { error: sanitizeErrorMessage(error) },
       { status: 500 }
     );
   }

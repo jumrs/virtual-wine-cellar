@@ -97,6 +97,16 @@ CREATE POLICY "Users can update wines they own"
     )
   );
 
+CREATE POLICY "Users can delete wines they own"
+  ON wines FOR DELETE
+  USING (
+    EXISTS (
+      SELECT 1 FROM user_wines
+      WHERE user_wines.wine_id = wines.id
+      AND user_wines.user_id = auth.uid()
+    )
+  );
+
 -- Create storage bucket for wine labels
 INSERT INTO storage.buckets (id, name, public) 
 VALUES ('wine-labels', 'wine-labels', true)

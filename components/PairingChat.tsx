@@ -39,8 +39,9 @@ export function PairingChat() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "Authorization": `Bearer ${accessToken}`,
         },
-        body: JSON.stringify({ meal: input, accessToken }),
+        body: JSON.stringify({ meal: input }),
       });
 
       if (!response.ok) {

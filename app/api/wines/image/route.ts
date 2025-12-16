@@ -1,10 +1,29 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabaseClient";
 import { createAuthenticatedClient } from "@/lib/supabaseServer";
+import {
+  checkRateLimit,
+  RATE_LIMITS,
+  getClientIdentifier,
+  validateImageFile,
+  generateSafeFilename,
+  isValidUUID,
+  sanitizeErrorMessage,
+} from "@/lib/security";
 
 // POST: Upload a new image
 export async function POST(request: NextRequest) {
   try {
+    // Rate limiting
+    const clientId = getClientIdentifier(request);
+    const rateLimit = checkRateLimit(`wines:image:${clientId}`, RATE_LIMITS.upload);
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { error: `Rate limit exceeded. Try again in ${rateLimit.retryAfter} seconds.` },
+        { status: 429 }
+      );
+    }
+
     const authHeader = request.headers.get("authorization");
     const accessToken = authHeader?.replace("Bearer ", "");
 
@@ -31,6 +50,23 @@ export async function POST(request: NextRequest) {
     if (!file || !wineId) {
       return NextResponse.json(
         { error: "Missing file or wine ID" },
+        { status: 400 }
+      );
+    }
+
+    // Validate wine ID format
+    if (!isValidUUID(wineId)) {
+      return NextResponse.json(
+        { error: "Invalid wine ID format" },
+        { status: 400 }
+      );
+    }
+
+    // Validate file
+    const fileValidation = validateImageFile(file, 10);
+    if (!fileValidation.valid) {
+      return NextResponse.json(
+        { error: fileValidation.error },
         { status: 400 }
       );
     }
@@ -72,9 +108,8 @@ export async function POST(request: NextRequest) {
         .remove([filePath]);
     }
 
-    // Upload new image
-    const fileExt = file.name.split(".").pop();
-    const fileName = `${user.id}/${Date.now()}.${fileExt}`;
+    // Upload new image with safe filename
+    const fileName = generateSafeFilename(user.id, file.name);
     const fileBuffer = await file.arrayBuffer();
 
     const { data: uploadData, error: uploadError } = await authenticatedSupabase.storage
@@ -112,10 +147,12 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json({ success: true, imageUrl });
-  } catch (error: any) {
-    console.error("Error uploading image:", error);
+  } catch (error: unknown) {
+    if (process.env.NODE_ENV === "development") {
+      console.error("Error uploading image:", error);
+    }
     return NextResponse.json(
-      { error: error.message || "Failed to upload image" },
+      { error: sanitizeErrorMessage(error) },
       { status: 500 }
     );
   }
@@ -124,6 +161,16 @@ export async function POST(request: NextRequest) {
 // DELETE: Remove image
 export async function DELETE(request: NextRequest) {
   try {
+    // Rate limiting
+    const clientId = getClientIdentifier(request);
+    const rateLimit = checkRateLimit(`wines:image:delete:${clientId}`, RATE_LIMITS.standard);
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { error: `Rate limit exceeded. Try again in ${rateLimit.retryAfter} seconds.` },
+        { status: 429 }
+      );
+    }
+
     const authHeader = request.headers.get("authorization");
     const accessToken = authHeader?.replace("Bearer ", "");
 
@@ -143,12 +190,29 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    const body = await request.json();
+    let body;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json(
+        { error: "Invalid request body" },
+        { status: 400 }
+      );
+    }
+
     const { wineId } = body;
 
     if (!wineId) {
       return NextResponse.json(
         { error: "Missing wine ID" },
+        { status: 400 }
+      );
+    }
+
+    // Validate wine ID format
+    if (!isValidUUID(wineId)) {
+      return NextResponse.json(
+        { error: "Invalid wine ID format" },
         { status: 400 }
       );
     }
@@ -205,10 +269,12 @@ export async function DELETE(request: NextRequest) {
     }
 
     return NextResponse.json({ success: true });
-  } catch (error: any) {
-    console.error("Error removing image:", error);
+  } catch (error: unknown) {
+    if (process.env.NODE_ENV === "development") {
+      console.error("Error removing image:", error);
+    }
     return NextResponse.json(
-      { error: error.message || "Failed to remove image" },
+      { error: sanitizeErrorMessage(error) },
       { status: 500 }
     );
   }

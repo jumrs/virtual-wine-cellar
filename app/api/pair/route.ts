@@ -2,17 +2,35 @@ import { NextRequest, NextResponse } from "next/server";
 import { openai } from "@/lib/openaiClient";
 import { createAuthenticatedClient } from "@/lib/supabaseServer";
 import { supabase } from "@/lib/supabaseClient";
+import {
+  checkRateLimit,
+  RATE_LIMITS,
+  getClientIdentifier,
+  sanitizeTextInput,
+  sanitizeErrorMessage,
+} from "@/lib/security";
 
 export async function POST(request: NextRequest) {
   try {
-    const { meal, accessToken } = await request.json();
-
-    if (!meal || typeof meal !== "string") {
+    // Rate limiting
+    const clientId = getClientIdentifier(request);
+    const rateLimit = checkRateLimit(`pair:${clientId}`, RATE_LIMITS.ai);
+    if (!rateLimit.allowed) {
       return NextResponse.json(
-        { error: "Meal description is required" },
-        { status: 400 }
+        { error: `Rate limit exceeded. Try again in ${rateLimit.retryAfter} seconds.` },
+        { 
+          status: 429,
+          headers: {
+            "Retry-After": String(rateLimit.retryAfter),
+            "X-RateLimit-Remaining": "0",
+          },
+        }
       );
     }
+
+    // Authentication via header (more secure than body)
+    const authHeader = request.headers.get("authorization");
+    const accessToken = authHeader?.replace("Bearer ", "");
 
     if (!accessToken) {
       return NextResponse.json(
@@ -28,6 +46,33 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: "Unauthorized" },
         { status: 401 }
+      );
+    }
+
+    // Parse and validate body (support both old and new format for backward compatibility)
+    const body = await request.json();
+    const meal = body.meal;
+
+    if (!meal || typeof meal !== "string") {
+      return NextResponse.json(
+        { error: "Meal description is required" },
+        { status: 400 }
+      );
+    }
+
+    // Sanitize user input
+    const sanitizedMeal = sanitizeTextInput(meal);
+    if (!sanitizedMeal || sanitizedMeal.length < 2) {
+      return NextResponse.json(
+        { error: "Please provide a valid meal description" },
+        { status: 400 }
+      );
+    }
+
+    if (sanitizedMeal.length > 500) {
+      return NextResponse.json(
+        { error: "Meal description is too long (max 500 characters)" },
+        { status: 400 }
       );
     }
 
@@ -81,7 +126,7 @@ export async function POST(request: NextRequest) {
         },
         {
           role: "user",
-          content: `I'm having: ${meal}\n\nMy available wines: ${winesList}\n\nSuggest the best pairings from my cellar with brief reasoning.`,
+          content: `I'm having: ${sanitizedMeal}\n\nMy available wines: ${winesList}\n\nSuggest the best pairings from my cellar with brief reasoning.`,
         },
       ],
       max_tokens: 500,
@@ -90,10 +135,14 @@ export async function POST(request: NextRequest) {
     const suggestion = response.choices[0]?.message?.content || "I couldn't generate a pairing suggestion.";
 
     return NextResponse.json({ suggestion });
-  } catch (error) {
-    console.error("Error generating pairing suggestion:", error);
+  } catch (error: unknown) {
+    // Log error securely (only in development)
+    if (process.env.NODE_ENV === "development") {
+      console.error("Error generating pairing suggestion:", error);
+    }
+    
     return NextResponse.json(
-      { error: "Failed to generate pairing suggestion" },
+      { error: sanitizeErrorMessage(error) },
       { status: 500 }
     );
   }
