@@ -1,157 +1,52 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback, memo, lazy, Suspense } from "react";
 import { Button } from "@/components/ui/button";
-import { Wine, Package, Star, Plus, Minus, FileText, X, Sparkles } from "lucide-react";
+import { Wine, Package, Star, Plus, Minus, Sparkles } from "lucide-react";
 import Image from "next/image";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/lib/supabaseClient";
 import { cn } from "@/lib/utils";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { getCountryCode, getWineTypeBadgeClass, isPremiumWine } from "@/lib/wineUtils";
+import type { Wine as WineType } from "@/types";
 
-export interface Wine {
-  id: string;
-  name: string;
-  type?: string;
-  region?: string;
-  country?: string;
-  grape?: string; // Legacy field - kept for backward compatibility
-  grapes?: string[]; // New: array of grape varieties
-  is_blend?: boolean; // New: true when grapes.length > 1
-  vintage?: number;
-  score?: number | null;
-  label_image_url?: string;
-  notes?: string;
-  date_added?: string;
-  quantity?: number;
-}
+// Re-export Wine type for backward compatibility
+export type { Wine } from "@/types";
+
+// Lazy load the notes dialog to reduce initial bundle
+const NotesDialog = lazy(() => import("./WineNotesDialog").then(m => ({ default: m.WineNotesDialog })));
 
 interface WineCardProps {
-  wine: Wine;
+  wine: WineType;
   onDelete: (id: string) => void;
-  onEdit: (wine: Wine) => void;
+  onEdit: (wine: WineType) => void;
   onImageUpdate?: () => void;
   onQuantityUpdate?: () => void;
   isRanOut?: boolean;
 }
 
-// Helper to get wine type badge color
-function getWineTypeBadgeClass(type?: string): string {
-  if (!type) return "bg-muted text-muted-foreground";
-  const lowerType = type.toLowerCase();
-  if (lowerType.includes("red")) return "wine-badge-red";
-  if (lowerType.includes("white")) return "wine-badge-white";
-  if (lowerType.includes("rosé") || lowerType.includes("rose")) return "wine-badge-rose";
-  if (lowerType.includes("sparkling") || lowerType.includes("champagne")) return "wine-badge-sparkling";
-  return "bg-muted text-muted-foreground";
-}
-
-// Helper to get ISO country code from country name
-function getCountryCode(country?: string): string {
-  if (!country) return "";
-  
-  const countryMap: Record<string, string> = {
-    "france": "FR",
-    "italy": "IT",
-    "spain": "ES",
-    "portugal": "PT",
-    "germany": "DE",
-    "austria": "AT",
-    "switzerland": "CH",
-    "greece": "GR",
-    "croatia": "HR",
-    "slovenia": "SI",
-    "hungary": "HU",
-    "romania": "RO",
-    "bulgaria": "BG",
-    "georgia": "GE",
-    "turkey": "TR",
-    "usa": "US",
-    "united states": "US",
-    "united states of america": "US",
-    "canada": "CA",
-    "mexico": "MX",
-    "argentina": "AR",
-    "chile": "CL",
-    "brazil": "BR",
-    "uruguay": "UY",
-    "south africa": "ZA",
-    "australia": "AU",
-    "new zealand": "NZ",
-    "china": "CN",
-    "japan": "JP",
-    "india": "IN",
-    "israel": "IL",
-    "lebanon": "LB",
-    "morocco": "MA",
-    "tunisia": "TN",
-    "algeria": "DZ",
-    "egypt": "EG",
-    "uk": "GB",
-    "united kingdom": "GB",
-    "england": "GB",
-    "ireland": "IE",
-    "scotland": "GB",
-    "wales": "GB",
-    "russia": "RU",
-    "ukraine": "UA",
-    "poland": "PL",
-    "czech republic": "CZ",
-    "slovakia": "SK",
-    "moldova": "MD",
-    "serbia": "RS",
-    "montenegro": "ME",
-    "macedonia": "MK",
-    "bosnia": "BA",
-    "albania": "AL",
-    "cyprus": "CY",
-    "malta": "MT",
-    "luxembourg": "LU",
-    "belgium": "BE",
-    "netherlands": "NL",
-    "denmark": "DK",
-    "sweden": "SE",
-    "norway": "NO",
-    "finland": "FI",
-    "iceland": "IS",
-    "estonia": "EE",
-    "latvia": "LV",
-    "lithuania": "LT",
-    "belarus": "BY",
-  };
-  
-  const normalizedCountry = country.toLowerCase().trim();
-  return countryMap[normalizedCountry] || "";
-}
-
-// Country Flag Component using SVG flags
-function CountryFlag({ countryCode }: { countryCode: string }) {
+/** Country flag component using CDN flags */
+const CountryFlag = memo(function CountryFlag({ countryCode }: { countryCode: string }) {
   if (!countryCode) return null;
-  
+
   return (
-    <span 
+    <span
       className="inline-block w-7 h-5 rounded-sm overflow-hidden border border-border/30 shadow-sm"
       style={{
         backgroundImage: `url(https://flagcdn.com/w40/${countryCode.toLowerCase()}.png)`,
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-        backgroundRepeat: 'no-repeat',
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundRepeat: "no-repeat",
       }}
       title={countryCode}
     />
   );
-}
+});
 
-// Star rating component with partial star support
-function StarRating({ score }: { score: number }) {
+/** Star rating display with partial star support */
+const StarRating = memo(function StarRating({ score }: { score: number }) {
   const fullStars = Math.floor(score);
   const partialFill = score - fullStars;
-  const nextStarIndex = fullStars;
   const emptyStars = 5 - fullStars - (partialFill > 0 ? 1 : 0);
 
   return (
@@ -160,14 +55,12 @@ function StarRating({ score }: { score: number }) {
       {Array.from({ length: fullStars }).map((_, i) => (
         <Star key={`full-${i}`} className="w-3.5 h-3.5 star-filled" />
       ))}
-      
+
       {/* Partial star */}
       {partialFill > 0 && (
         <div className="relative w-3.5 h-3.5 flex-shrink-0">
-          {/* Empty star background */}
           <Star className="w-3.5 h-3.5 star-empty absolute inset-0" />
-          {/* Partial fill */}
-          <div 
+          <div
             className="absolute inset-0 overflow-hidden"
             style={{ width: `${partialFill * 100}%` }}
           >
@@ -175,75 +68,101 @@ function StarRating({ score }: { score: number }) {
           </div>
         </div>
       )}
-      
+
       {/* Empty stars */}
       {Array.from({ length: emptyStars }).map((_, i) => (
         <Star key={`empty-${i}`} className="w-3.5 h-3.5 star-empty" />
       ))}
     </div>
   );
-}
+});
 
-export function WineCard({ wine, onDelete, onEdit, onImageUpdate, onQuantityUpdate, isRanOut = false }: WineCardProps) {
+/** Wine card component - memoized for performance */
+export const WineCard = memo(function WineCard({
+  wine,
+  onDelete,
+  onEdit,
+  onImageUpdate,
+  onQuantityUpdate,
+  isRanOut = false,
+}: WineCardProps) {
   const [updatingQuantity, setUpdatingQuantity] = useState(false);
   const [notesOpen, setNotesOpen] = useState(false);
   const { toast } = useToast();
-  const isPremium = wine.score !== null && wine.score !== undefined && wine.score >= 4.5;
+
+  // Memoized computed values
+  const isPremium = isPremiumWine(wine);
   const hasNotes = wine.notes && wine.notes.trim().length > 0;
+  const countryCode = getCountryCode(wine.country);
+  const typeBadgeClass = getWineTypeBadgeClass(wine.type);
 
-  const handleQuantityChange = async (e: React.MouseEvent, delta: number) => {
+  const handleQuantityChange = useCallback(
+    async (e: React.MouseEvent, delta: number) => {
+      e.stopPropagation();
+      if (updatingQuantity) return;
+
+      const newQuantity = Math.max(0, (wine.quantity || 0) + delta);
+
+      setUpdatingQuantity(true);
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        const accessToken = session?.access_token;
+
+        if (!accessToken) {
+          throw new Error("Not authenticated");
+        }
+
+        const response = await fetch("/api/wines/quantity", {
+          method: "PATCH",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            wineId: wine.id,
+            quantity: newQuantity,
+          }),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.error || "Failed to update quantity");
+        }
+
+        onQuantityUpdate?.();
+      } catch (error: any) {
+        toast({
+          title: "Error",
+          description: error.message || "Failed to update quantity.",
+          variant: "destructive",
+        });
+      } finally {
+        setUpdatingQuantity(false);
+      }
+    },
+    [wine.id, wine.quantity, updatingQuantity, onQuantityUpdate, toast]
+  );
+
+  const handleCardClick = useCallback(() => {
+    onEdit(wine);
+  }, [onEdit, wine]);
+
+  const handleNotesClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
-    if (updatingQuantity) return;
-    
-    const newQuantity = Math.max(0, (wine.quantity || 0) + delta);
-    
-    setUpdatingQuantity(true);
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const accessToken = session?.access_token;
-
-      if (!accessToken) {
-        throw new Error("Not authenticated");
-      }
-
-      const response = await fetch("/api/wines/quantity", {
-        method: "PATCH",
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          wineId: wine.id,
-          quantity: newQuantity,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || "Failed to update quantity");
-      }
-
-      onQuantityUpdate?.();
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to update quantity. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setUpdatingQuantity(false);
-    }
-  };
+    setNotesOpen(true);
+  }, []);
 
   return (
     <>
-      <div 
+      <div
         className={cn(
           "wine-card cursor-pointer group",
           isRanOut && "opacity-50 grayscale",
           isPremium && "wine-card-premium"
         )}
-        onClick={() => onEdit(wine)}
+        onClick={handleCardClick}
       >
         {/* Image Container */}
         <div className="wine-image-container aspect-[3/4] relative">
@@ -253,6 +172,7 @@ export function WineCard({ wine, onDelete, onEdit, onImageUpdate, onQuantityUpda
               alt={wine.name}
               fill
               className="object-cover"
+              sizes="(max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center bg-gradient-to-b from-muted to-muted/50">
@@ -262,25 +182,22 @@ export function WineCard({ wine, onDelete, onEdit, onImageUpdate, onQuantityUpda
 
           {/* Wine Type Badge */}
           {wine.type && (
-            <div className={cn("wine-badge absolute top-2 left-2", getWineTypeBadgeClass(wine.type))}>
+            <div className={cn("wine-badge absolute top-2 left-2", typeBadgeClass)}>
               {wine.type}
             </div>
           )}
 
           {/* Country Flag */}
-          {wine.country && getCountryCode(wine.country) && (
+          {countryCode && (
             <div className="absolute top-2 right-2">
-              <CountryFlag countryCode={getCountryCode(wine.country)} />
+              <CountryFlag countryCode={countryCode} />
             </div>
           )}
 
-          {/* Notes Button - Bottom Right */}
+          {/* Notes Button */}
           {hasNotes && (
             <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setNotesOpen(true);
-              }}
+              onClick={handleNotesClick}
               className="absolute bottom-3 right-3 w-8 h-8 rounded-full bg-white/90 backdrop-blur-sm shadow-lg flex items-center justify-center hover:bg-white hover:scale-110 active:scale-95 transition-all duration-200 touch-manipulation z-10"
               aria-label="View AI notes"
             >
@@ -329,13 +246,15 @@ export function WineCard({ wine, onDelete, onEdit, onImageUpdate, onQuantityUpda
               {wine.score !== null && wine.score !== undefined ? (
                 <>
                   <StarRating score={wine.score} />
-                  <span className="text-xs font-medium ml-1">{wine.score.toFixed(1)}</span>
+                  <span className="text-xs font-medium ml-1">
+                    {wine.score.toFixed(1)}
+                  </span>
                 </>
               ) : (
                 <span className="text-xs text-muted-foreground">No rating</span>
               )}
             </div>
-            
+
             {/* Quantity Badge */}
             <div className="flex items-center gap-1 text-xs text-muted-foreground">
               <Package className="w-3 h-3" />
@@ -366,38 +285,16 @@ export function WineCard({ wine, onDelete, onEdit, onImageUpdate, onQuantityUpda
         </div>
       </div>
 
-      {/* Notes Dialog */}
-      <Dialog open={notesOpen} onOpenChange={setNotesOpen}>
-        <DialogContent className="max-w-md max-h-[85vh] p-0 gap-0 rounded-3xl">
-          <DialogHeader className="p-6 pb-4 border-b border-border/30">
-            <div className="flex items-center justify-between">
-              <DialogTitle className="font-serif text-xl flex items-center gap-2">
-                <Sparkles className="w-5 h-5 text-primary" />
-                Notes
-              </DialogTitle>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setNotesOpen(false)}
-                className="w-9 h-9 rounded-full"
-              >
-                <X className="w-4 h-4" />
-              </Button>
-            </div>
-            <p className="text-sm text-muted-foreground mt-1 font-medium">
-              {wine.name}
-              {wine.vintage && ` • ${wine.vintage}`}
-            </p>
-          </DialogHeader>
-          <div className="p-6 overflow-y-auto">
-            <div className="prose prose-sm max-w-none">
-              <p className="text-base leading-relaxed text-foreground whitespace-pre-wrap">
-                {wine.notes}
-              </p>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+      {/* Notes Dialog - Lazy loaded */}
+      {hasNotes && notesOpen && (
+        <Suspense fallback={null}>
+          <NotesDialog
+            wine={wine}
+            open={notesOpen}
+            onOpenChange={setNotesOpen}
+          />
+        </Suspense>
+      )}
     </>
   );
-}
+});

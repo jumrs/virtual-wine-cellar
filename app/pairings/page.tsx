@@ -1,35 +1,18 @@
 "use client";
 
-import { useAuth } from "@/components/AuthProvider";
 import { PairingChat } from "@/components/PairingChat";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Wine } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useEffect } from "react";
 import { BottomNav } from "@/components/BottomNav";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
+import { useAuthGuard } from "@/hooks";
 
 export default function PairingsPage() {
-  const { user, loading } = useAuth();
-  const router = useRouter();
-
-  useEffect(() => {
-    if (!loading && !user) {
-      router.push("/");
-    }
-  }, [user, loading, router]);
+  const { user, loading } = useAuthGuard();
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-center">
-          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-primary/10 flex items-center justify-center animate-pulse">
-            <Wine className="h-8 w-8 text-primary" />
-          </div>
-          <p className="text-muted-foreground">Loading...</p>
-        </div>
-      </div>
-    );
+    return <LoadingSpinner fullScreen message="Loading..." size="lg" />;
   }
 
   if (!user) {

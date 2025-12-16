@@ -66,7 +66,7 @@ export function DuplicateWineDialog({
         <div className="space-y-4">
           {/* New Wine Info */}
           <div className="bg-muted/30 rounded-xl p-4">
-            <p className="text-xs font-medium text-muted-foreground mb-2">You're adding:</p>
+            <p className="text-xs font-medium text-muted-foreground mb-2">You&apos;re adding:</p>
             <p className="font-semibold">{newWineName}</p>
           </div>
 

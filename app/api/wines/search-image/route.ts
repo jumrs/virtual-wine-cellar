@@ -33,60 +33,58 @@ export async function GET(request: NextRequest) {
         { status: 400 }
       );
     }
-    
-      // Fallback: Use a simple image search API or return placeholder
-      // For now, we'll use Pexels API as an alternative (free tier available)
-      const pexelsApiKey = process.env.PEXELS_API_KEY;
-      
-      if (pexelsApiKey) {
-        const searchTerm = `${wineName} ${query} wine bottle label`.trim();
-        const pexelsResponse = await fetch(
-          `https://api.pexels.com/v1/search?query=${encodeURIComponent(searchTerm)}&per_page=9`,
-          {
-            headers: {
-              Authorization: pexelsApiKey,
-            },
-          }
-        );
 
-        if (pexelsResponse.ok) {
-          const pexelsData = await pexelsResponse.json();
-          const urls = pexelsData.photos?.map((photo: any) => photo.src.large) || [];
-          return NextResponse.json({ urls });
+    const searchTerm = `${wineName} ${query} wine bottle label`.trim();
+
+    // Prefer Unsplash if configured
+    const unsplashAccessKey = process.env.UNSPLASH_ACCESS_KEY;
+    if (unsplashAccessKey) {
+      const unsplashResponse = await fetch(
+        `https://api.unsplash.com/search/photos?query=${encodeURIComponent(searchTerm)}&per_page=9&orientation=portrait`,
+        {
+          headers: {
+            Authorization: `Client-ID ${unsplashAccessKey}`,
+          },
         }
-      }
-
-      // If no API keys are available, try using a simple fallback
-      // We can use a placeholder service or return empty results with a message
-      console.warn("No image search API key configured. Image search will not work.");
-      return NextResponse.json(
-        { 
-          error: "Image search is not configured. Please set PEXELS_API_KEY or UNSPLASH_ACCESS_KEY in your environment variables to enable image search.",
-          urls: []
-        },
-        { status: 503 }
       );
 
-
-    // Use Unsplash API
-    const searchTerm = `${wineName} ${query} wine bottle label`.trim();
-    const unsplashResponse = await fetch(
-      `https://api.unsplash.com/search/photos?query=${encodeURIComponent(searchTerm)}&per_page=9&orientation=portrait`,
-      {
-        headers: {
-          Authorization: `Client-ID ${unsplashAccessKey}`,
-        },
+      if (!unsplashResponse.ok) {
+        throw new Error(`Unsplash API error: ${unsplashResponse.statusText}`);
       }
-    );
 
-    if (!unsplashResponse.ok) {
-      throw new Error(`Unsplash API error: ${unsplashResponse.statusText}`);
+      const unsplashData = await unsplashResponse.json();
+      const urls = unsplashData.results?.map((photo: any) => photo.urls.regular) || [];
+      return NextResponse.json({ urls });
     }
 
-    const unsplashData = await unsplashResponse.json();
-    const urls = unsplashData.results?.map((photo: any) => photo.urls.regular) || [];
+    // Fallback: Pexels (free tier available)
+    const pexelsApiKey = process.env.PEXELS_API_KEY;
+    if (pexelsApiKey) {
+      const pexelsResponse = await fetch(
+        `https://api.pexels.com/v1/search?query=${encodeURIComponent(searchTerm)}&per_page=9`,
+        {
+          headers: {
+            Authorization: pexelsApiKey,
+          },
+        }
+      );
 
-    return NextResponse.json({ urls });
+      if (pexelsResponse.ok) {
+        const pexelsData = await pexelsResponse.json();
+        const urls = pexelsData.photos?.map((photo: any) => photo.src.large) || [];
+        return NextResponse.json({ urls });
+      }
+    }
+
+    console.warn("No image search API key configured. Image search will not work.");
+    return NextResponse.json(
+      {
+        error:
+          "Image search is not configured. Please set PEXELS_API_KEY or UNSPLASH_ACCESS_KEY in your environment variables to enable image search.",
+        urls: [],
+      },
+      { status: 503 }
+    );
   } catch (error: any) {
     console.error("Error searching for images:", error);
     return NextResponse.json(

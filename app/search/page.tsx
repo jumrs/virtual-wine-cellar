@@ -1,150 +1,66 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
-import { useAuth } from "@/components/AuthProvider";
-import { WineCard, type Wine } from "@/components/WineCard";
+import { useCallback, useMemo, useState, lazy, Suspense } from "react";
+import { WineCard } from "@/components/WineCard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Search, Wine as WineIcon, ArrowLeft, X } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useToast } from "@/components/ui/use-toast";
-import { supabase } from "@/lib/supabaseClient";
-import { EditWineDialog } from "@/components/EditWineDialog";
 import { BottomNav } from "@/components/BottomNav";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
+import { EmptyState } from "@/components/ui/empty-state";
+import { useAuthGuard, useWines, useDebounce, invalidateWineCache } from "@/hooks";
+import { filterWinesByQuery } from "@/lib/wineUtils";
+import type { Wine } from "@/types";
+
+// Lazy load EditWineDialog
+const EditWineDialog = lazy(() =>
+  import("@/components/EditWineDialog").then((m) => ({ default: m.EditWineDialog }))
+);
 
 export default function SearchPage() {
-  const { user, loading } = useAuth();
-  const router = useRouter();
-  const [wines, setWines] = useState<Wine[]>([]);
-  const [loadingWines, setLoadingWines] = useState(false);
+  const { user, loading: authLoading, isAuthenticated } = useAuthGuard();
+  const { wines, loading: loadingWines, fetchWines, deleteWine } = useWines({
+    autoFetch: isAuthenticated,
+  });
   const [searchQuery, setSearchQuery] = useState("");
   const [editingWine, setEditingWine] = useState<Wine | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
-  const { toast } = useToast();
 
-  useEffect(() => {
-    if (!loading && !user) {
-      router.push("/");
-    }
-  }, [user, loading, router]);
+  // Debounce search for better performance
+  const debouncedSearch = useDebounce(searchQuery, 300);
 
-  useEffect(() => {
-    if (user) {
-      fetchWines();
-    }
-  }, [user]);
+  // Filter wines by search query
+  const filteredWines = useMemo(
+    () => filterWinesByQuery(wines, debouncedSearch),
+    [wines, debouncedSearch]
+  );
 
-  const fetchWines = async () => {
-    if (!user) return;
-
-    setLoadingWines(true);
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const accessToken = session?.access_token;
-
-      if (!accessToken) {
-        throw new Error("No access token");
-      }
-
-      const response = await fetch("/api/wines", {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to fetch wines");
-      }
-
-      const data = await response.json();
-      setWines(data);
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to load your wines.",
-        variant: "destructive",
-      });
-    } finally {
-      setLoadingWines(false);
-    }
-  };
-
-  const filteredWines = useMemo(() => {
-    if (!searchQuery.trim()) return wines;
-    
-    const query = searchQuery.toLowerCase();
-    return wines.filter(
-      (wine) =>
-        wine.name.toLowerCase().includes(query) ||
-        wine.type?.toLowerCase().includes(query) ||
-        wine.grape?.toLowerCase().includes(query) ||
-        wine.region?.toLowerCase().includes(query) ||
-        wine.country?.toLowerCase().includes(query) ||
-        wine.notes?.toLowerCase().includes(query)
-    );
-  }, [wines, searchQuery]);
-
-  const handleEdit = (wine: Wine) => {
+  const handleEdit = useCallback((wine: Wine) => {
     setEditingWine(wine);
     setEditDialogOpen(true);
-  };
+  }, []);
 
-  const handleSaveEdit = () => {
+  const handleSaveEdit = useCallback(() => {
+    invalidateWineCache();
     fetchWines();
     setEditDialogOpen(false);
     setEditingWine(null);
-  };
+  }, [fetchWines]);
 
-  const handleDelete = async (wineId: string) => {
-    if (!user) return;
+  const handleDelete = useCallback(
+    async (wineId: string) => {
+      await deleteWine(wineId);
+    },
+    [deleteWine]
+  );
 
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const accessToken = session?.access_token;
-
-      if (!accessToken) {
-        throw new Error("No access token");
-      }
-
-      const response = await fetch(`/api/wines?id=${wineId}`, {
-        method: "DELETE",
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to delete wine");
-      }
-
-      setWines((prevWines) => prevWines.filter((w) => w.id !== wineId));
-      toast({
-        title: "Success",
-        description: "Wine removed from your cellar.",
-      });
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to delete wine.",
-        variant: "destructive",
-      });
-    }
-  };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-center">
-          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-primary/10 flex items-center justify-center animate-pulse">
-            <WineIcon className="h-8 w-8 text-primary" />
-          </div>
-          <p className="text-muted-foreground">Loading...</p>
-        </div>
-      </div>
-    );
+  // Loading state
+  if (authLoading) {
+    return <LoadingSpinner fullScreen message="Loading..." size="lg" />;
   }
 
+  // Not authenticated
   if (!user) {
     return null;
   }
@@ -190,24 +106,17 @@ export default function SearchPage() {
       {/* Results */}
       <main className="container mx-auto px-4 py-2 page-container">
         {loadingWines ? (
-          <div className="text-center py-16">
-            <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-primary/10 flex items-center justify-center animate-pulse">
-              <WineIcon className="h-6 w-6 text-primary" />
-            </div>
-            <p className="text-muted-foreground">Loading wines...</p>
-          </div>
+          <LoadingSpinner message="Loading wines..." />
         ) : searchQuery && filteredWines.length === 0 ? (
-          <div className="text-center py-16">
-            <Search className="w-12 h-12 mx-auto mb-4 text-muted-foreground/40" />
-            <h3 className="font-semibold mb-2">No wines found</h3>
-            <p className="text-muted-foreground">
-              Try a different search term
-            </p>
-          </div>
+          <EmptyState
+            icon={<Search className="w-full h-full" />}
+            title="No wines found"
+            description="Try a different search term"
+          />
         ) : filteredWines.length > 0 ? (
           <>
             <p className="text-sm text-muted-foreground mb-4">
-              {searchQuery 
+              {searchQuery
                 ? `${filteredWines.length} ${filteredWines.length === 1 ? "result" : "results"} for "${searchQuery}"`
                 : `${filteredWines.length} wines in your cellar`}
             </p>
@@ -226,31 +135,32 @@ export default function SearchPage() {
             </div>
           </>
         ) : (
-          <div className="text-center py-16">
-            <WineIcon className="w-12 h-12 mx-auto mb-4 text-muted-foreground/40" />
-            <h3 className="font-semibold mb-2">Your cellar is empty</h3>
-            <p className="text-muted-foreground mb-4">
-              Add some wines to start searching
-            </p>
-            <Link href="/upload">
-              <Button className="rounded-full btn-wine">
-                Add Your First Wine
-              </Button>
-            </Link>
-          </div>
+          <EmptyState
+            title="Your cellar is empty"
+            description="Add some wines to start searching"
+            action={
+              <Link href="/upload">
+                <Button className="rounded-full btn-wine">Add Your First Wine</Button>
+              </Link>
+            }
+          />
         )}
       </main>
 
       <BottomNav />
-      
-      <EditWineDialog
-        wine={editingWine}
-        open={editDialogOpen}
-        onOpenChange={setEditDialogOpen}
-        onSave={handleSaveEdit}
-        onImageUpdate={fetchWines}
-      />
+
+      {/* Edit Dialog - Lazy loaded */}
+      {editDialogOpen && (
+        <Suspense fallback={null}>
+          <EditWineDialog
+            wine={editingWine}
+            open={editDialogOpen}
+            onOpenChange={setEditDialogOpen}
+            onSave={handleSaveEdit}
+            onImageUpdate={fetchWines}
+          />
+        </Suspense>
+      )}
     </div>
   );
 }
-

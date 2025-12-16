@@ -196,7 +196,7 @@ export function GrapeSelector({
                   })
                 ) : (
                   <div className="px-3 py-6 text-center text-sm text-muted-foreground">
-                    No grapes found matching "{searchQuery}"
+                    No grapes found matching &quot;{searchQuery}&quot;
                   </div>
                 )}
               </div>
