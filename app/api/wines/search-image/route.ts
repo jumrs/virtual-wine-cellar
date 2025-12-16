@@ -1,9 +1,26 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabaseClient";
+import {
+  checkRateLimit,
+  RATE_LIMITS,
+  getClientIdentifier,
+  sanitizeTextInput,
+  sanitizeErrorMessage,
+} from "@/lib/security";
 
 // GET: Search for wine images from the internet
 export async function GET(request: NextRequest) {
   try {
+    // Rate limiting
+    const clientId = getClientIdentifier(request);
+    const rateLimit = checkRateLimit(`wines:search-image:${clientId}`, RATE_LIMITS.standard);
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { error: `Rate limit exceeded. Try again in ${rateLimit.retryAfter} seconds.` },
+        { status: 429 }
+      );
+    }
+
     const authHeader = request.headers.get("authorization");
     const accessToken = authHeader?.replace("Bearer ", "");
 
@@ -34,7 +51,22 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const searchTerm = `${wineName} ${query} wine bottle label`.trim();
+    // Sanitize search inputs
+    const sanitizedQuery = sanitizeTextInput(query);
+    const sanitizedWineName = sanitizeTextInput(wineName);
+
+    if (!sanitizedQuery || sanitizedQuery.length < 2) {
+      return NextResponse.json(
+        { error: "Search query is too short" },
+        { status: 400 }
+      );
+    }
+
+    // Limit query length to prevent abuse
+    const limitedQuery = sanitizedQuery.slice(0, 100);
+    const limitedWineName = sanitizedWineName.slice(0, 100);
+
+    const searchTerm = `${limitedWineName} ${limitedQuery} wine bottle label`.trim();
 
     // Prefer Unsplash if configured
     const unsplashAccessKey = process.env.UNSPLASH_ACCESS_KEY;
@@ -85,10 +117,12 @@ export async function GET(request: NextRequest) {
       },
       { status: 503 }
     );
-  } catch (error: any) {
-    console.error("Error searching for images:", error);
+  } catch (error: unknown) {
+    if (process.env.NODE_ENV === "development") {
+      console.error("Error searching for images:", error);
+    }
     return NextResponse.json(
-      { error: error.message || "Failed to search for images", urls: [] },
+      { error: sanitizeErrorMessage(error), urls: [] },
       { status: 500 }
     );
   }

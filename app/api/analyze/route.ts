@@ -1,14 +1,61 @@
 import { NextRequest, NextResponse } from "next/server";
 import { openai } from "@/lib/openaiClient";
+import { supabase } from "@/lib/supabaseClient";
+import {
+  checkRateLimit,
+  RATE_LIMITS,
+  getClientIdentifier,
+  validateImageFile,
+  sanitizeErrorMessage,
+} from "@/lib/security";
 
 export async function POST(request: NextRequest) {
   try {
+    // Rate limiting
+    const clientId = getClientIdentifier(request);
+    const rateLimit = checkRateLimit(`analyze:${clientId}`, RATE_LIMITS.ai);
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { error: `Rate limit exceeded. Try again in ${rateLimit.retryAfter} seconds.` },
+        { 
+          status: 429,
+          headers: {
+            "Retry-After": String(rateLimit.retryAfter),
+            "X-RateLimit-Remaining": "0",
+          },
+        }
+      );
+    }
+
+    // Authentication check
+    const authHeader = request.headers.get("authorization");
+    const accessToken = authHeader?.replace("Bearer ", "");
+
+    if (!accessToken) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
+
+    if (authError || !user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const formData = await request.formData();
     const file = formData.get("image") as File;
 
     if (!file) {
       return NextResponse.json(
         { error: "No image provided" },
+        { status: 400 }
+      );
+    }
+
+    // Validate file
+    const fileValidation = validateImageFile(file, 10);
+    if (!fileValidation.valid) {
+      return NextResponse.json(
+        { error: fileValidation.error },
         { status: 400 }
       );
     }
@@ -141,18 +188,14 @@ const response = await openai.chat.completions.create({
     wineData.grape = wineData.grapes.length > 0 ? wineData.grapes.join(", ") : null;
 
     return NextResponse.json(wineData);
-  } catch (error: any) {
-    console.error("Error analyzing wine label:", error);
-    
-    // Provide more specific error messages
-    let errorMessage = "Failed to analyze wine label";
-    if (error.message?.includes("API key")) {
-      errorMessage = "OpenAI API key is invalid or missing";
-    } else if (error.message?.includes("rate limit")) {
-      errorMessage = "OpenAI API rate limit exceeded. Please try again later.";
-    } else if (error.message) {
-      errorMessage = error.message;
+  } catch (error: unknown) {
+    // Log error securely (only in development or to secure logging service)
+    if (process.env.NODE_ENV === "development") {
+      console.error("Error analyzing wine label:", error);
     }
+    
+    // Return sanitized error message
+    const errorMessage = sanitizeErrorMessage(error);
     
     return NextResponse.json(
       { error: errorMessage },

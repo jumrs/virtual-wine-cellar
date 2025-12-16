@@ -1,11 +1,28 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
+import {
+  checkRateLimit,
+  RATE_LIMITS,
+  getClientIdentifier,
+  sanitizeTextInput,
+  sanitizeErrorMessage,
+} from "@/lib/security";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
 export async function GET(request: NextRequest) {
   try {
+    // Rate limiting
+    const clientId = getClientIdentifier(request);
+    const rateLimit = checkRateLimit(`profile:get:${clientId}`, RATE_LIMITS.standard);
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { error: `Rate limit exceeded. Try again in ${rateLimit.retryAfter} seconds.` },
+        { status: 429 }
+      );
+    }
+
     const authHeader = request.headers.get("Authorization");
     if (!authHeader) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -29,10 +46,10 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Get user profile
+    // Get user profile - select only necessary fields
     const { data: profile, error: profileError } = await supabase
       .from("user_profiles")
-      .select("*")
+      .select("username, name, avatar_url")
       .eq("id", user.id)
       .single();
 
@@ -49,10 +66,12 @@ export async function GET(request: NextRequest) {
       name: profile?.name || null,
       avatar_url: profile?.avatar_url || null,
     });
-  } catch (error) {
-    console.error("Error in GET /api/profile:", error);
+  } catch (error: unknown) {
+    if (process.env.NODE_ENV === "development") {
+      console.error("Error in GET /api/profile:", error);
+    }
     return NextResponse.json(
-      { error: "Internal server error" },
+      { error: sanitizeErrorMessage(error) },
       { status: 500 }
     );
   }
@@ -60,6 +79,16 @@ export async function GET(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   try {
+    // Rate limiting
+    const clientId = getClientIdentifier(request);
+    const rateLimit = checkRateLimit(`profile:put:${clientId}`, RATE_LIMITS.standard);
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { error: `Rate limit exceeded. Try again in ${rateLimit.retryAfter} seconds.` },
+        { status: 429 }
+      );
+    }
+
     const authHeader = request.headers.get("Authorization");
     if (!authHeader) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -83,14 +112,35 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const body = await request.json();
-    const { username, name, avatar_url } = body;
+    let body;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
+    }
+
+    // Sanitize inputs
+    const username = body.username !== undefined 
+      ? sanitizeTextInput(body.username) || null
+      : undefined;
+    const name = body.name !== undefined 
+      ? sanitizeTextInput(body.name) || null
+      : undefined;
+    const avatar_url = body.avatar_url; // URL validation is handled separately
 
     // Validate username if provided
-    if (username !== undefined) {
-      if (username && (username.length < 3 || username.length > 20)) {
+    if (username !== undefined && username !== null) {
+      if (username.length < 3 || username.length > 20) {
         return NextResponse.json(
           { error: "Username must be between 3 and 20 characters" },
+          { status: 400 }
+        );
+      }
+
+      // Validate username format (alphanumeric and underscores only)
+      if (!/^[a-zA-Z0-9_]+$/.test(username)) {
+        return NextResponse.json(
+          { error: "Username can only contain letters, numbers, and underscores" },
           { status: 400 }
         );
       }
@@ -111,6 +161,14 @@ export async function PUT(request: NextRequest) {
           );
         }
       }
+    }
+
+    // Validate name length if provided
+    if (name !== undefined && name !== null && name.length > 100) {
+      return NextResponse.json(
+        { error: "Name must be 100 characters or less" },
+        { status: 400 }
+      );
     }
 
     // Update or insert profile
@@ -146,10 +204,12 @@ export async function PUT(request: NextRequest) {
       name: profile.name,
       avatar_url: profile.avatar_url,
     });
-  } catch (error) {
-    console.error("Error in PUT /api/profile:", error);
+  } catch (error: unknown) {
+    if (process.env.NODE_ENV === "development") {
+      console.error("Error in PUT /api/profile:", error);
+    }
     return NextResponse.json(
-      { error: "Internal server error" },
+      { error: sanitizeErrorMessage(error) },
       { status: 500 }
     );
   }

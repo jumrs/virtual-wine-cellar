@@ -115,11 +115,22 @@ export function UploadForm() {
     });
 
     try {
+      // Get auth token for API call
+      const { data: { session } } = await supabase.auth.getSession();
+      const accessToken = session?.access_token;
+
+      if (!accessToken) {
+        throw new Error("Please sign in to analyze wine labels");
+      }
+
       const formData = new FormData();
       formData.append("image", wine.file);
 
       const response = await fetch("/api/analyze", {
         method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
         body: formData,
       });
 

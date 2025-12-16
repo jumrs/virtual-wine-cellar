@@ -1,8 +1,46 @@
 import { NextRequest, NextResponse } from "next/server";
 import { openai } from "@/lib/openaiClient";
+import { supabase } from "@/lib/supabaseClient";
+import {
+  checkRateLimit,
+  RATE_LIMITS,
+  getClientIdentifier,
+  sanitizeTextInput,
+  sanitizeErrorMessage,
+} from "@/lib/security";
 
 export async function POST(request: NextRequest) {
   try {
+    // Rate limiting
+    const clientId = getClientIdentifier(request);
+    const rateLimit = checkRateLimit(`fetch-score:${clientId}`, RATE_LIMITS.ai);
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { error: `Rate limit exceeded. Try again in ${rateLimit.retryAfter} seconds.` },
+        { 
+          status: 429,
+          headers: {
+            "Retry-After": String(rateLimit.retryAfter),
+            "X-RateLimit-Remaining": "0",
+          },
+        }
+      );
+    }
+
+    // Authentication check
+    const authHeader = request.headers.get("authorization");
+    const accessToken = authHeader?.replace("Bearer ", "");
+
+    if (!accessToken) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { data: { user }, error: authError } = await supabase.auth.getUser(accessToken);
+
+    if (authError || !user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const body = await request.json();
     const { name, type, grape, region, country, vintage } = body;
 
@@ -13,12 +51,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Build a comprehensive search query for the wine
-    let wineQuery = name;
-    if (type) wineQuery += ` ${type}`;
-    if (grape) wineQuery += ` ${grape}`;
-    if (region) wineQuery += ` ${region}`;
-    if (country) wineQuery += ` ${country}`;
+    // Sanitize inputs
+    const sanitizedName = sanitizeTextInput(name);
+    const sanitizedType = sanitizeTextInput(type);
+    const sanitizedGrape = sanitizeTextInput(grape);
+    const sanitizedRegion = sanitizeTextInput(region);
+    const sanitizedCountry = sanitizeTextInput(country);
+
+    // Build a comprehensive search query for the wine using sanitized inputs
+    let wineQuery = sanitizedName;
+    if (sanitizedType) wineQuery += ` ${sanitizedType}`;
+    if (sanitizedGrape) wineQuery += ` ${sanitizedGrape}`;
+    if (sanitizedRegion) wineQuery += ` ${sanitizedRegion}`;
+    if (sanitizedCountry) wineQuery += ` ${sanitizedCountry}`;
     if (vintage) wineQuery += ` ${vintage}`;
 
     // Use OpenAI to search for wine scores from the x-wines dataset and other wine databases
@@ -87,17 +132,14 @@ Please search Vivino to find the score for this wine. If multiple scores exist, 
       confidence: scoreData.confidence || "low",
       notes: scoreData.notes || null,
     });
-  } catch (error: any) {
-    console.error("Error fetching wine score:", error);
-    
-    let errorMessage = "Failed to fetch wine score";
-    if (error.message?.includes("API key")) {
-      errorMessage = "OpenAI API key is invalid or missing";
-    } else if (error.message?.includes("rate limit")) {
-      errorMessage = "OpenAI API rate limit exceeded. Please try again later.";
-    } else if (error.message) {
-      errorMessage = error.message;
+  } catch (error: unknown) {
+    // Log error securely (only in development)
+    if (process.env.NODE_ENV === "development") {
+      console.error("Error fetching wine score:", error);
     }
+    
+    // Return sanitized error message
+    const errorMessage = sanitizeErrorMessage(error);
     
     return NextResponse.json(
       { error: errorMessage },
