@@ -1,16 +1,15 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
-import { useAuth } from "@/components/AuthProvider";
+import { useState, useRef, useCallback, useMemo, lazy, Suspense } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { 
-  Wine as WineIcon, 
-  ArrowLeft, 
-  LogOut, 
-  User, 
-  Mail, 
+import {
+  Wine as WineIcon,
+  ArrowLeft,
+  LogOut,
+  User,
+  Mail,
   Globe,
   Package,
   Star,
@@ -20,7 +19,7 @@ import {
   Camera,
   Save,
   Loader2,
-  X
+  X,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -28,95 +27,76 @@ import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/lib/supabaseClient";
 import { BottomNav } from "@/components/BottomNav";
 import Image from "next/image";
-import type { Wine } from "@/components/WineCard";
 import { StatBox } from "@/components/StatBox";
-import {
-  WinesAnalyticsModal,
-  BottlesAnalyticsModal,
-  RatingAnalyticsModal,
-  CountriesAnalyticsModal,
-} from "@/components/analytics";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
+import { useAuthGuard, useWines, getDisplayName } from "@/hooks";
+import { calculateWineStats } from "@/lib/wineUtils";
+
+// Lazy load analytics modals
+const WinesAnalyticsModal = lazy(() =>
+  import("@/components/analytics").then((m) => ({ default: m.WinesAnalyticsModal }))
+);
+const BottlesAnalyticsModal = lazy(() =>
+  import("@/components/analytics").then((m) => ({ default: m.BottlesAnalyticsModal }))
+);
+const RatingAnalyticsModal = lazy(() =>
+  import("@/components/analytics").then((m) => ({ default: m.RatingAnalyticsModal }))
+);
+const CountriesAnalyticsModal = lazy(() =>
+  import("@/components/analytics").then((m) => ({ default: m.CountriesAnalyticsModal }))
+);
 
 export default function ProfilePage() {
-  const { user, profile, loading, signOut, refreshProfile } = useAuth();
+  const { user, profile, loading: authLoading, signOut, refreshProfile } = useAuthGuard();
+  const { wines, loading: loadingWines } = useWines({ autoFetch: !!user });
   const router = useRouter();
-  const [wines, setWines] = useState<Wine[]>([]);
-  const [loadingWines, setLoadingWines] = useState(false);
+  const { toast } = useToast();
+
+  // Form state
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [formData, setFormData] = useState({
-    username: "",
-    name: "",
+    username: profile?.username || "",
+    name: profile?.name || "",
   });
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { toast } = useToast();
 
-  // Analytics modal states
+  // Modal states
   const [winesModalOpen, setWinesModalOpen] = useState(false);
   const [bottlesModalOpen, setBottlesModalOpen] = useState(false);
   const [ratingModalOpen, setRatingModalOpen] = useState(false);
   const [countriesModalOpen, setCountriesModalOpen] = useState(false);
 
-  useEffect(() => {
-    if (!loading && !user) {
-      router.push("/");
-    }
-  }, [user, loading, router]);
-
-  useEffect(() => {
-    if (user) {
-      fetchWines();
-    }
-  }, [user]);
-
-  useEffect(() => {
-    if (profile) {
+  // Update form when profile changes
+  useMemo(() => {
+    if (profile && !editing) {
       setFormData({
         username: profile.username || "",
         name: profile.name || "",
       });
     }
-  }, [profile]);
+  }, [profile, editing]);
 
-  const fetchWines = async () => {
-    if (!user) return;
+  // Calculate stats
+  const stats = useMemo(() => calculateWineStats(wines), [wines]);
 
-    setLoadingWines(true);
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const accessToken = session?.access_token;
+  const displayName = useMemo(
+    () => getDisplayName(profile, user),
+    [profile, user]
+  );
 
-      if (!accessToken) return;
-
-      const response = await fetch("/api/wines", {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setWines(data);
-      }
-    } catch (error) {
-      // Silent fail
-    } finally {
-      setLoadingWines(false);
-    }
-  };
-
-  const handleSave = async () => {
+  const handleSave = useCallback(async () => {
     if (!user) return;
 
     setSaving(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
       const accessToken = session?.access_token;
 
-      if (!accessToken) {
-        throw new Error("Not authenticated");
-      }
+      if (!accessToken) throw new Error("Not authenticated");
 
       const response = await fetch("/api/profile", {
         method: "PUT",
@@ -150,91 +130,81 @@ export default function ProfilePage() {
     } finally {
       setSaving(false);
     }
-  };
+  }, [user, formData, refreshProfile, toast]);
 
-  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !user) return;
+  const handleAvatarUpload = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file || !user) return;
 
-    setUploadingAvatar(true);
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const accessToken = session?.access_token;
+      setUploadingAvatar(true);
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        const accessToken = session?.access_token;
 
-      if (!accessToken) {
-        throw new Error("Not authenticated");
+        if (!accessToken) throw new Error("Not authenticated");
+
+        const formData = new FormData();
+        formData.append("file", file);
+
+        const response = await fetch("/api/profile/avatar", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${accessToken}` },
+          body: formData,
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || "Failed to upload avatar");
+        }
+
+        await refreshProfile();
+        toast({
+          title: "Avatar updated",
+          description: "Your profile picture has been updated.",
+        });
+      } catch (error: any) {
+        toast({
+          title: "Error",
+          description: error.message || "Failed to upload avatar.",
+          variant: "destructive",
+        });
+      } finally {
+        setUploadingAvatar(false);
+        if (fileInputRef.current) fileInputRef.current.value = "";
       }
+    },
+    [user, refreshProfile, toast]
+  );
 
-      const formData = new FormData();
-      formData.append("file", file);
-
-      const response = await fetch("/api/profile/avatar", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-        body: formData,
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to upload avatar");
-      }
-
-      await refreshProfile();
-      toast({
-        title: "Avatar updated",
-        description: "Your profile picture has been updated.",
-      });
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to upload avatar.",
-        variant: "destructive",
-      });
-    } finally {
-      setUploadingAvatar(false);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
-      }
-    }
-  };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-center">
-          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-primary/10 flex items-center justify-center animate-pulse">
-            <WineIcon className="h-8 w-8 text-primary" />
-          </div>
-          <p className="text-muted-foreground">Loading...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!user) {
-    return null;
-  }
-
-  // Calculate stats
-  const totalWines = wines.length;
-  const totalBottles = wines.reduce((sum, w) => sum + (w.quantity || 0), 0);
-  const avgRating = wines.filter(w => w.score).length > 0
-    ? wines.filter(w => w.score).reduce((sum, w) => sum + (w.score || 0), 0) / wines.filter(w => w.score).length
-    : 0;
-  const uniqueCountries = new Set(wines.map(w => w.country).filter(Boolean)).size;
-
-  const handleSignOut = async () => {
+  const handleSignOut = useCallback(async () => {
     await signOut();
     toast({
       title: "Signed out",
       description: "You have been signed out successfully.",
     });
     router.push("/");
-  };
+  }, [signOut, toast, router]);
 
-  const displayName = profile?.name || profile?.username || (user.email?.split("@")[0] || "User");
+  const handleCancelEdit = useCallback(() => {
+    setEditing(false);
+    if (profile) {
+      setFormData({
+        username: profile.username || "",
+        name: profile.name || "",
+      });
+    }
+  }, [profile]);
+
+  if (authLoading) {
+    return <LoadingSpinner fullScreen message="Loading..." size="lg" />;
+  }
+
+  if (!user) {
+    return null;
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -253,15 +223,7 @@ export default function ProfilePage() {
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => {
-                    setEditing(false);
-                    if (profile) {
-                      setFormData({
-                        username: profile.username || "",
-                        name: profile.name || "",
-                      });
-                    }
-                  }}
+                  onClick={handleCancelEdit}
                   disabled={saving}
                 >
                   <X className="h-4 w-4" />
@@ -329,29 +291,45 @@ export default function ProfilePage() {
                 className="hidden"
               />
             </div>
+
             <div className="flex-1">
               {editing ? (
                 <div className="space-y-3">
                   <div className="space-y-2">
-                    <Label htmlFor="name" className="text-sm font-medium">Name</Label>
+                    <Label htmlFor="name" className="text-sm font-medium">
+                      Name
+                    </Label>
                     <Input
                       id="name"
                       value={formData.name}
-                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                      onChange={(e) =>
+                        setFormData({ ...formData, name: e.target.value })
+                      }
                       placeholder="Your name"
                       className="elegant-input h-10"
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="username" className="text-sm font-medium">Username</Label>
+                    <Label htmlFor="username" className="text-sm font-medium">
+                      Username
+                    </Label>
                     <Input
                       id="username"
                       value={formData.username}
-                      onChange={(e) => setFormData({ ...formData, username: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, "") })}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          username: e.target.value
+                            .toLowerCase()
+                            .replace(/[^a-z0-9_]/g, ""),
+                        })
+                      }
                       placeholder="username"
                       className="elegant-input h-10"
                     />
-                    <p className="text-xs text-muted-foreground">3-20 characters, letters, numbers, and underscores only</p>
+                    <p className="text-xs text-muted-foreground">
+                      3-20 characters, letters, numbers, and underscores only
+                    </p>
                   </div>
                 </div>
               ) : (
@@ -362,7 +340,9 @@ export default function ProfilePage() {
                     {user.email}
                   </p>
                   {profile?.username && (
-                    <p className="text-sm text-muted-foreground mt-1">@{profile.username}</p>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      @{profile.username}
+                    </p>
                   )}
                   <Button
                     variant="outline"
@@ -382,25 +362,25 @@ export default function ProfilePage() {
           <div className="grid grid-cols-2 gap-4">
             <StatBox
               icon={<WineIcon className="w-4 h-4 text-primary" />}
-              value={totalWines}
+              value={stats.totalWines}
               label="Wines"
               onClick={() => setWinesModalOpen(true)}
             />
             <StatBox
               icon={<Package className="w-4 h-4 text-primary" />}
-              value={totalBottles}
+              value={stats.totalBottles}
               label="Bottles"
               onClick={() => setBottlesModalOpen(true)}
             />
             <StatBox
               icon={<Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />}
-              value={avgRating > 0 ? avgRating.toFixed(1) : "—"}
+              value={stats.avgRating > 0 ? stats.avgRating.toFixed(1) : "—"}
               label="Avg Rating"
               onClick={() => setRatingModalOpen(true)}
             />
             <StatBox
               icon={<Globe className="w-4 h-4 text-primary" />}
-              value={uniqueCountries}
+              value={stats.uniqueCountries}
               label="Countries"
               onClick={() => setCountriesModalOpen(true)}
             />
@@ -423,7 +403,7 @@ export default function ProfilePage() {
             </div>
             <ChevronRight className="w-5 h-5 text-muted-foreground" />
           </button>
-          <button 
+          <button
             onClick={handleSignOut}
             className="w-full flex items-center justify-between p-4 hover:bg-muted/30 transition-colors text-destructive"
           >
@@ -442,27 +422,37 @@ export default function ProfilePage() {
 
       <BottomNav />
 
-      {/* Analytics Modals */}
-      <WinesAnalyticsModal
-        open={winesModalOpen}
-        onOpenChange={setWinesModalOpen}
-        wines={wines}
-      />
-      <BottlesAnalyticsModal
-        open={bottlesModalOpen}
-        onOpenChange={setBottlesModalOpen}
-        wines={wines}
-      />
-      <RatingAnalyticsModal
-        open={ratingModalOpen}
-        onOpenChange={setRatingModalOpen}
-        wines={wines}
-      />
-      <CountriesAnalyticsModal
-        open={countriesModalOpen}
-        onOpenChange={setCountriesModalOpen}
-        wines={wines}
-      />
+      {/* Analytics Modals - Lazy loaded */}
+      <Suspense fallback={null}>
+        {winesModalOpen && (
+          <WinesAnalyticsModal
+            open={winesModalOpen}
+            onOpenChange={setWinesModalOpen}
+            wines={wines}
+          />
+        )}
+        {bottlesModalOpen && (
+          <BottlesAnalyticsModal
+            open={bottlesModalOpen}
+            onOpenChange={setBottlesModalOpen}
+            wines={wines}
+          />
+        )}
+        {ratingModalOpen && (
+          <RatingAnalyticsModal
+            open={ratingModalOpen}
+            onOpenChange={setRatingModalOpen}
+            wines={wines}
+          />
+        )}
+        {countriesModalOpen && (
+          <CountriesAnalyticsModal
+            open={countriesModalOpen}
+            onOpenChange={setCountriesModalOpen}
+            wines={wines}
+          />
+        )}
+      </Suspense>
     </div>
   );
 }
