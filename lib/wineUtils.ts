@@ -168,12 +168,61 @@ export function sortWinesByDateDesc(wines: Wine[]): Wine[] {
  */
 export function getWineTypeBadge(type?: string): WineTypeBadge {
   if (!type) return "default";
-  const lowerType = type.toLowerCase();
+  const lowerType = type.toLowerCase().trim();
 
-  if (lowerType.includes("red")) return "red";
-  if (lowerType.includes("white")) return "white";
+  // Red
+  if (lowerType.includes("red") || lowerType.includes("rouge")) return "red";
+
+  // White
+  if (lowerType.includes("white") || lowerType.includes("blanc")) return "white";
+
+  // Rosé
   if (lowerType.includes("rosé") || lowerType.includes("rose")) return "rose";
-  if (lowerType.includes("sparkling") || lowerType.includes("champagne")) return "sparkling";
+
+  // Sparkling
+  if (
+    lowerType.includes("sparkling") ||
+    lowerType.includes("champagne") ||
+    lowerType.includes("prosecco") ||
+    lowerType.includes("cava") ||
+    lowerType.includes("crémant") ||
+    lowerType.includes("cremant")
+  ) {
+    return "sparkling";
+  }
+
+  // Dessert / sweet
+  if (
+    lowerType.includes("dessert") ||
+    lowerType.includes("sweet") ||
+    lowerType.includes("late harvest") ||
+    lowerType.includes("icewine") ||
+    lowerType.includes("ice wine") ||
+    lowerType.includes("sauternes") ||
+    lowerType.includes("tokaji")
+  ) {
+    return "dessert";
+  }
+
+  // Fortified
+  if (
+    lowerType.includes("fortified") ||
+    lowerType.includes("port") ||
+    lowerType.includes("sherry") ||
+    lowerType.includes("madeira") ||
+    lowerType.includes("vermouth")
+  ) {
+    return "fortified";
+  }
+
+  // Orange / skin-contact
+  if (
+    lowerType.includes("orange") ||
+    lowerType.includes("skin contact") ||
+    lowerType.includes("skin-contact")
+  ) {
+    return "orange";
+  }
 
   return "default";
 }
@@ -185,14 +234,47 @@ export function getWineTypeBadge(type?: string): WineTypeBadge {
  */
 export function getWineTypeBadgeClass(type?: string): string {
   const badge = getWineTypeBadge(type);
+  // Return Tailwind utility classes directly so styling doesn't depend on
+  // custom CSS class definitions (more robust across build/caching).
   const classes: Record<WineTypeBadge, string> = {
-    red: "wine-badge-red",
-    white: "wine-badge-white",
-    rose: "wine-badge-rose",
-    sparkling: "wine-badge-sparkling",
+    red: "bg-red-100 text-red-800",
+    white: "bg-amber-50 text-amber-700",
+    rose: "bg-pink-100 text-pink-700",
+    sparkling: "bg-yellow-50 text-yellow-700",
+    dessert: "bg-purple-100 text-purple-800",
+    fortified: "bg-stone-200 text-stone-800",
+    orange: "bg-orange-100 text-orange-800",
     default: "bg-muted text-muted-foreground",
   };
+
+  // If we don't recognize the type, still give it a deterministic color
+  // (so custom types look “dynamic” instead of always muted).
+  if (badge === "default") {
+    const normalized = (type || "").toLowerCase().trim();
+    if (!normalized) return classes.default;
+    const variant = (hashString(normalized) % 6) + 1; // 1..6
+    const variants: Record<number, string> = {
+      1: "bg-sky-100 text-sky-800",
+      2: "bg-emerald-100 text-emerald-800",
+      3: "bg-indigo-100 text-indigo-800",
+      4: "bg-fuchsia-100 text-fuchsia-800",
+      5: "bg-lime-100 text-lime-800",
+      6: "bg-cyan-100 text-cyan-800",
+    };
+    return `${variants[variant]} ring-1 ring-black/5`;
+  }
+
   return classes[badge];
+}
+
+function hashString(str: string): number {
+  // Simple deterministic non-crypto hash (UI only)
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = (hash << 5) - hash + str.charCodeAt(i);
+    hash |= 0;
+  }
+  return Math.abs(hash);
 }
 
 /**
