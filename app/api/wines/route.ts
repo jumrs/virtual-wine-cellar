@@ -22,6 +22,10 @@ import {
   isValidUUID,
 } from "@/lib/security";
 
+// This route is user-specific and must never be cached across sessions/users.
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 /**
  * GET /api/wines - Fetch user's wine collection
  */
@@ -87,13 +91,19 @@ export async function GET(request: NextRequest) {
         if (fallbackError) throw fallbackError;
 
         const formatted = formatWineResponse(fallbackWines, false);
-        return successResponse(formatted, { cacheDuration: 30, staleWhileRevalidate: 60 });
+        const response = successResponse(formatted);
+        response.headers.set("Cache-Control", "no-store");
+        response.headers.set("Vary", "Authorization");
+        return response;
       }
       throw error;
     }
 
     const formatted = formatWineResponse(wines, true);
-    return successResponse(formatted, { cacheDuration: 30, staleWhileRevalidate: 60 });
+    const response = successResponse(formatted);
+    response.headers.set("Cache-Control", "no-store");
+    response.headers.set("Vary", "Authorization");
+    return response;
   } catch (error) {
     logApiError("GET /api/wines", error);
     return errorResponse("Failed to fetch wines");

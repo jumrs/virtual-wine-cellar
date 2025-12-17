@@ -35,9 +35,12 @@ interface UseWinesReturn {
   updateQuantity: (wineId: string, quantity: number) => Promise<boolean>;
 }
 
-/** Cache for wine data to prevent redundant fetches */
-let wineCache: Wine[] | null = null;
-let lastFetchTime = 0;
+/**
+ * Cache for wine data to prevent redundant fetches.
+ * IMPORTANT: Cache must be scoped per-user to avoid leaking data across account switches.
+ */
+let wineCacheByUser: Record<string, Wine[] | undefined> = {};
+let lastFetchTimeByUser: Record<string, number | undefined> = {};
 const CACHE_DURATION = 30000; // 30 seconds
 
 /**
@@ -51,33 +54,44 @@ export function useWines(options: UseWinesOptions = {}): UseWinesReturn {
     showErrorToast = true,
   } = options;
 
-  const [wines, setWines] = useState<Wine[]>(wineCache || []);
-  const [loading, setLoading] = useState(!wineCache);
+  // Start empty; we'll hydrate from the correct per-user cache after we know who is logged in.
+  const [wines, setWines] = useState<Wine[]>([]);
+  const [loading, setLoading] = useState(autoFetch);
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
   const mountedRef = useRef(true);
 
   const fetchWines = useCallback(async (forceRefresh = false) => {
-    // Use cache if available and fresh (unless force refresh)
-    const now = Date.now();
-    if (!forceRefresh && wineCache && now - lastFetchTime < CACHE_DURATION) {
-      setWines(wineCache);
-      setLoading(false);
-      return;
-    }
-
     setLoading(true);
     setError(null);
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const accessToken = session?.access_token;
+      const userId = session?.user?.id;
 
-      if (!accessToken) {
-        throw new Error("Not authenticated");
+      if (!accessToken || !userId) {
+        // No session - clear wines and return empty
+        setWines([]);
+        setLoading(false);
+        return;
+      }
+
+      // Use per-user cache if available and fresh (unless force refresh)
+      const now = Date.now();
+      const cachedWines = wineCacheByUser[userId];
+      const lastFetchTime = lastFetchTimeByUser[userId] ?? 0;
+      if (!forceRefresh && cachedWines && now - lastFetchTime < CACHE_DURATION) {
+        if (mountedRef.current) {
+          setWines(cachedWines);
+          setLoading(false);
+        }
+        return;
       }
 
       const response = await fetch("/api/wines", {
+        // Prevent browser/proxy caches from reusing a previous user's response.
+        cache: "no-store",
         headers: {
           Authorization: `Bearer ${accessToken}`,
         },
@@ -91,8 +105,8 @@ export function useWines(options: UseWinesOptions = {}): UseWinesReturn {
       const processedWines = sortOnFetch ? sortWinesByCountryAndName(data) : data;
 
       // Update cache
-      wineCache = processedWines;
-      lastFetchTime = Date.now();
+      wineCacheByUser[userId] = processedWines;
+      lastFetchTimeByUser[userId] = Date.now();
 
       if (mountedRef.current) {
         setWines(processedWines);
@@ -120,8 +134,9 @@ export function useWines(options: UseWinesOptions = {}): UseWinesReturn {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const accessToken = session?.access_token;
+      const userId = session?.user?.id;
 
-      if (!accessToken) {
+      if (!accessToken || !userId) {
         throw new Error("Not authenticated");
       }
 
@@ -139,8 +154,10 @@ export function useWines(options: UseWinesOptions = {}): UseWinesReturn {
       // Optimistic update
       setWines((prev) => {
         const updated = prev.filter((w) => w.id !== wineId);
-        wineCache = sortWinesByCountryAndName(updated);
-        return wineCache;
+        const next = sortWinesByCountryAndName(updated);
+        wineCacheByUser[userId] = next;
+        lastFetchTimeByUser[userId] = Date.now();
+        return next;
       });
 
       toast({
@@ -163,8 +180,9 @@ export function useWines(options: UseWinesOptions = {}): UseWinesReturn {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const accessToken = session?.access_token;
+      const userId = session?.user?.id;
 
-      if (!accessToken) {
+      if (!accessToken || !userId) {
         throw new Error("Not authenticated");
       }
 
@@ -186,8 +204,10 @@ export function useWines(options: UseWinesOptions = {}): UseWinesReturn {
         const updated = prev.map((w) =>
           w.id === wineId ? { ...w, quantity } : w
         );
-        wineCache = sortWinesByCountryAndName(updated);
-        return wineCache;
+        const next = sortWinesByCountryAndName(updated);
+        wineCacheByUser[userId] = next;
+        lastFetchTimeByUser[userId] = Date.now();
+        return next;
       });
 
       return true;
@@ -226,7 +246,7 @@ export function useWines(options: UseWinesOptions = {}): UseWinesReturn {
  * Invalidate the wine cache (call after mutations)
  */
 export function invalidateWineCache(): void {
-  wineCache = null;
-  lastFetchTime = 0;
+  wineCacheByUser = {};
+  lastFetchTimeByUser = {};
 }
 

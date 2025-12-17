@@ -45,7 +45,7 @@ export function BottomNav() {
   const pathname = usePathname();
 
   // Don't show on auth page
-  if (pathname === "/auth") {
+  if (pathname === "/auth" || pathname === "/auth/callback") {
     return null;
   }
 
