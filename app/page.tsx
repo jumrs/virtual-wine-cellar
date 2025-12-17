@@ -4,7 +4,7 @@ import { useCallback, useMemo, useState, lazy, Suspense } from "react";
 import { useAuth } from "@/components/AuthProvider";
 import { WineCard } from "@/components/WineCard";
 import { Button } from "@/components/ui/button";
-import { Plus, LogIn, Wine as WineIcon, Camera, LogOut } from "lucide-react";
+import { LogIn, Wine as WineIcon, Camera } from "lucide-react";
 import Link from "next/link";
 import { ConfigCheck } from "@/components/ConfigCheck";
 import { WineFilters } from "@/components/WineFilters";
@@ -21,7 +21,7 @@ const EditWineDialog = lazy(() =>
 );
 
 export default function Home() {
-  const { user, profile, loading, signOut } = useAuth();
+  const { user, profile, loading } = useAuth();
   const { wines, loading: loadingWines, fetchWines, deleteWine } = useWines({
     autoFetch: !!user,
   });
@@ -104,27 +104,6 @@ export default function Home() {
                   {stats.totalBottles} bottles
                 </p>
               )}
-            </div>
-            <div className="flex items-center gap-2">
-              <Link href="/upload" className="md:hidden">
-                <Button size="icon" variant="ghost" className="rounded-full w-10 h-10">
-                  <Plus className="h-5 w-5" />
-                </Button>
-              </Link>
-              <Link href="/upload" className="hidden md:flex">
-                <Button className="rounded-full">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Wine
-                </Button>
-              </Link>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={signOut}
-                className="rounded-full w-10 h-10"
-              >
-                <LogOut className="h-5 w-5" />
-              </Button>
             </div>
           </div>
         </div>
