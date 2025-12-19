@@ -193,7 +193,11 @@ export async function POST(request: NextRequest) {
     }
 
     // Link wine to user
-    const quantity = Math.max(1, wineData.quantity || 1);
+    // Ensure quantity is a valid number (sanitizeWineData validates it, but TypeScript doesn't know the type)
+    const rawQuantity = wineData.quantity;
+    const quantityNum = typeof rawQuantity === "number" ? rawQuantity : 
+                        (typeof rawQuantity === "string" ? parseInt(rawQuantity, 10) : 1);
+    const quantity = Math.max(1, isNaN(quantityNum) ? 1 : quantityNum);
     const { error: linkError } = await authenticatedSupabase
       .from("user_wines")
       .insert({
@@ -306,9 +310,12 @@ export async function PUT(request: NextRequest) {
 
     // Update quantity
     if (quantity !== undefined) {
+      const quantityNum = typeof quantity === "number" ? quantity : 
+                          (typeof quantity === "string" ? parseInt(quantity, 10) : 0);
+      const validQuantity = isNaN(quantityNum) ? 0 : quantityNum;
       await authenticatedSupabase
         .from("user_wines")
-        .update({ quantity: Math.max(0, quantity) })
+        .update({ quantity: Math.max(0, validQuantity) })
         .eq("user_id", user.id)
         .eq("wine_id", wineId);
     }
