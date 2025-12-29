@@ -48,6 +48,8 @@ interface EditWineDialogProps {
   onOpenChange: (open: boolean) => void;
   onSave: () => void;
   onImageUpdate?: () => void;
+  /** Whether user can delete wines (owner only) */
+  canDelete?: boolean;
 }
 
 interface FormData {
@@ -84,6 +86,7 @@ export const EditWineDialog = memo(function EditWineDialog({
   onOpenChange,
   onSave,
   onImageUpdate,
+  canDelete = true,
 }: EditWineDialogProps) {
   const [formData, setFormData] = useState<FormData>(initialFormData);
   const [saving, setSaving] = useState(false);
@@ -113,7 +116,7 @@ export const EditWineDialog = memo(function EditWineDialog({
         vintage: wine.vintage?.toString() || "",
         score: wine.score?.toString() || "",
         notes: wine.notes || "",
-        quantity: wine.quantity || 1,
+        quantity: wine.quantity ?? 1,
       });
     }
   }, [wine]);
@@ -464,19 +467,22 @@ export const EditWineDialog = memo(function EditWineDialog({
 
           {/* Actions */}
           <div className="flex gap-3 pt-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={handleDelete}
-              disabled={saving || deleting}
-              className="rounded-xl h-11 px-4 text-destructive hover:text-destructive hover:bg-destructive/10"
-            >
-              {deleting ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Trash2 className="h-4 w-4" />
-              )}
-            </Button>
+            {/* Delete button - Only show for cellar owner */}
+            {canDelete && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleDelete}
+                disabled={saving || deleting}
+                className="rounded-xl h-11 px-4 text-destructive hover:text-destructive hover:bg-destructive/10"
+              >
+                {deleting ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Trash2 className="h-4 w-4" />
+                )}
+              </Button>
+            )}
             <Button
               type="submit"
               disabled={saving || deleting}

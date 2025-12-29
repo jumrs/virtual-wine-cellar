@@ -23,6 +23,9 @@ interface CellarProviderProps {
 const CellarContext = createContext<CellarContextState>({
   cellars: [],
   activeCellar: null,
+  userRole: null,
+  canEdit: false,
+  canDelete: false,
   loading: true,
   error: null,
   setActiveCellar: () => {},
@@ -40,9 +43,14 @@ export function CellarProvider({ children }: CellarProviderProps) {
   const { toast } = useToast();
   const [cellars, setCellars] = useState<Cellar[]>([]);
   const [activeCellar, setActiveCellarState] = useState<Cellar | null>(null);
+  const [userRole, setUserRole] = useState<"owner" | "admin" | "member" | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const mountedRef = useRef(true);
+
+  // Computed permissions based on role
+  const canEdit = userRole === "owner" || userRole === "admin";
+  const canDelete = userRole === "owner";
 
   // Get access token helper
   const getAccessToken = useCallback(async (): Promise<string | null> => {
@@ -149,11 +157,53 @@ export function CellarProvider({ children }: CellarProviderProps) {
     }
   }, [getAccessToken, profile, user]);
 
-  // Set active cellar
+  // Fetch user's role in a cellar
+  const fetchUserRole = useCallback(async (cellarId: string) => {
+    if (!user) {
+      setUserRole(null);
+      return;
+    }
+
+    try {
+      const accessToken = await getAccessToken();
+      if (!accessToken) return;
+
+      const response = await fetch(`/api/cellars/members?cellarId=${cellarId}`, {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+
+      if (response.ok) {
+        const members = await response.json();
+        const currentMember = members.find((m: any) => m.user_id === user.id);
+        if (currentMember) {
+          setUserRole(currentMember.role as "owner" | "admin" | "member");
+        } else {
+          setUserRole(null);
+        }
+      }
+    } catch (error) {
+      console.error("Failed to fetch user role:", error);
+      setUserRole(null);
+    }
+  }, [getAccessToken, user]);
+
+  // Set active cellar and fetch role
   const setActiveCellar = useCallback((cellar: Cellar) => {
     setActiveCellarState(cellar);
     localStorage.setItem(ACTIVE_CELLAR_KEY, cellar.id);
-  }, []);
+    fetchUserRole(cellar.id);
+  }, [fetchUserRole]);
+
+  // Fetch role when active cellar changes (e.g., on initial load)
+  useEffect(() => {
+    if (activeCellar && user) {
+      fetchUserRole(activeCellar.id);
+    } else {
+      setUserRole(null);
+    }
+  }, [activeCellar?.id, user?.id, fetchUserRole]);
 
   // Create a new cellar
   const createCellar = useCallback(
@@ -499,6 +549,9 @@ export function CellarProvider({ children }: CellarProviderProps) {
     () => ({
       cellars,
       activeCellar,
+      userRole,
+      canEdit,
+      canDelete,
       loading,
       error,
       setActiveCellar,
@@ -513,6 +566,9 @@ export function CellarProvider({ children }: CellarProviderProps) {
     [
       cellars,
       activeCellar,
+      userRole,
+      canEdit,
+      canDelete,
       loading,
       error,
       setActiveCellar,

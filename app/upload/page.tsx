@@ -12,7 +12,7 @@ import { BottomNav } from "@/components/BottomNav";
 
 export default function UploadPage() {
   const { user, loading } = useAuth();
-  const { activeCellar, loading: loadingCellar } = useCellar();
+  const { activeCellar, loading: loadingCellar, canEdit } = useCellar();
   const router = useRouter();
 
   useEffect(() => {
@@ -20,6 +20,13 @@ export default function UploadPage() {
       router.push("/");
     }
   }, [user, loading, router]);
+
+  // Redirect if user doesn't have edit permissions
+  useEffect(() => {
+    if (!loading && !loadingCellar && user && canEdit === false) {
+      router.push("/");
+    }
+  }, [loading, loadingCellar, user, canEdit, router]);
 
   if (loading || loadingCellar) {
     return (

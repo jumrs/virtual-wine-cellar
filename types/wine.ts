@@ -85,6 +85,12 @@ export interface CellarContextState {
   cellars: Cellar[];
   /** Currently active cellar */
   activeCellar: Cellar | null;
+  /** User's role in the active cellar */
+  userRole: CellarRole | null;
+  /** Whether user can edit (owner or admin) */
+  canEdit: boolean;
+  /** Whether user can delete wines (owner only) */
+  canDelete: boolean;
   /** Loading state */
   loading: boolean;
   /** Error message */

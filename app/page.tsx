@@ -27,7 +27,7 @@ const EditWineDialog = lazy(() =>
 
 export default function Home() {
   const { user, profile, loading } = useAuth();
-  const { activeCellar, loading: loadingCellar } = useCellar();
+  const { activeCellar, loading: loadingCellar, canEdit, canDelete } = useCellar();
   const { wines, loading: loadingWines, fetchWines, deleteWine } = useWines({
     autoFetch: !!user && !!activeCellar,
     cellarId: activeCellar?.id,
@@ -51,11 +51,13 @@ export default function Home() {
     [wines]
   );
 
+  // Filter active wines based on filters
   const filteredActiveWines = useMemo(
     () => filteredWines.filter((w) => (w.quantity || 0) > 0),
     [filteredWines]
   );
 
+  // Filter ran out wines - they should respect filters but always be visible in their section
   const filteredRanOutWines = useMemo(
     () => filteredWines.filter((w) => (w.quantity || 0) === 0),
     [filteredWines]
@@ -198,17 +200,21 @@ export default function Home() {
                 onDelete={handleDelete}
                 onEdit={handleEdit}
                 onRefresh={fetchWines}
+                canEdit={canEdit}
+                canDelete={canDelete}
               />
             )}
 
-            {/* Ran Out Wines */}
-            {filteredRanOutWines.length > 0 && (
+            {/* Ran Out Wines - Show section if there are any ran out wines */}
+            {ranOutWines.length > 0 && (
               <WineSection
                 title="Ran Out"
                 wines={filteredRanOutWines}
                 onDelete={handleDelete}
                 onEdit={handleEdit}
                 onRefresh={fetchWines}
+                canEdit={canEdit}
+                canDelete={canDelete}
                 isRanOut
                 delay={200}
               />
@@ -240,6 +246,7 @@ export default function Home() {
             onOpenChange={setEditDialogOpen}
             onSave={handleSaveEdit}
             onImageUpdate={fetchWines}
+            canDelete={canDelete}
           />
         </Suspense>
       )}
@@ -350,6 +357,8 @@ function WineSection({
   onDelete,
   onEdit,
   onRefresh,
+  canEdit = true,
+  canDelete = true,
   isRanOut = false,
   delay = 100,
 }: {
@@ -358,6 +367,8 @@ function WineSection({
   onDelete: (id: string) => void;
   onEdit: (wine: Wine) => void;
   onRefresh: () => void;
+  canEdit?: boolean;
+  canDelete?: boolean;
   isRanOut?: boolean;
   delay?: number;
 }) {
@@ -380,6 +391,8 @@ function WineSection({
             onEdit={onEdit}
             onImageUpdate={onRefresh}
             onQuantityUpdate={onRefresh}
+            canEdit={canEdit}
+            canDelete={canDelete}
             isRanOut={isRanOut}
           />
         ))}

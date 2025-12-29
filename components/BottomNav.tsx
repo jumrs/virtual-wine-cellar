@@ -2,14 +2,16 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Star, Search, Camera, Wine, User } from "lucide-react";
+import { Star, Search, Camera, Wine, User, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useCellar } from "@/components/CellarProvider";
 
 interface NavItem {
   href: string;
   icon: React.ReactNode;
   label: string;
   activeIcon?: React.ReactNode;
+  requiresEdit?: boolean;
 }
 
 const navItems: NavItem[] = [
@@ -28,6 +30,7 @@ const navItems: NavItem[] = [
     href: "/upload",
     icon: <Camera className="w-6 h-6" strokeWidth={1.5} />,
     label: "Scan",
+    requiresEdit: true,
   },
   {
     href: "/pairings",
@@ -43,6 +46,7 @@ const navItems: NavItem[] = [
 
 export function BottomNav() {
   const pathname = usePathname();
+  const { canEdit } = useCellar();
 
   // Don't show on auth page
   if (pathname === "/auth" || pathname === "/auth/callback") {
@@ -54,6 +58,26 @@ export function BottomNav() {
       <div className="flex items-center justify-around max-w-4xl mx-auto">
         {navItems.map((item) => {
           const isActive = pathname === item.href;
+          const isDisabled = item.requiresEdit && !canEdit;
+          
+          if (isDisabled) {
+            return (
+              <div
+                key={item.href}
+                className={cn(
+                  "bottom-nav-item opacity-40 cursor-not-allowed"
+                )}
+                title="View-only access"
+              >
+                <div className="relative">
+                  {item.icon}
+                  <Lock className="absolute -bottom-1 -right-1 w-3 h-3 text-muted-foreground" />
+                </div>
+                <span className="text-[10px] font-medium">{item.label}</span>
+              </div>
+            );
+          }
+          
           return (
             <Link
               key={item.href}

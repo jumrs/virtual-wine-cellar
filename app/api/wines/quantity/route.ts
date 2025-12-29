@@ -79,28 +79,66 @@ export async function PATCH(request: NextRequest) {
 
     const authenticatedSupabase = createAuthenticatedClient(accessToken);
 
-    // Verify user owns this wine
-    const { data: userWine, error: checkError } = await authenticatedSupabase
-      .from("user_wines")
-      .select("id")
-      .eq("user_id", user.id)
-      .eq("wine_id", wineId)
+    // Get the wine to find its cellar
+    const { data: wine, error: wineError } = await authenticatedSupabase
+      .from("wines")
+      .select("cellar_id")
+      .eq("id", wineId)
       .single();
 
-    if (checkError || !userWine) {
+    if (wineError || !wine) {
       return NextResponse.json(
-        { error: "Wine not found or you don't have permission to edit it" },
+        { error: "Wine not found" },
         { status: 404 }
       );
     }
 
-    // Update quantity in user_wines (allow 0)
+    // Get the cellar owner
+    const { data: cellar, error: cellarError } = await authenticatedSupabase
+      .from("cellars")
+      .select("owner_id")
+      .eq("id", wine.cellar_id)
+      .single();
+
+    if (cellarError || !cellar) {
+      return NextResponse.json(
+        { error: "Cellar not found" },
+        { status: 404 }
+      );
+    }
+
+    // Verify user is a member of this cellar and has edit permissions
+    const { data: membership, error: membershipError } = await authenticatedSupabase
+      .from("cellar_members")
+      .select("id, role")
+      .eq("cellar_id", wine.cellar_id)
+      .eq("user_id", user.id)
+      .single();
+
+    if (membershipError || !membership) {
+      return NextResponse.json(
+        { error: "You don't have access to this wine" },
+        { status: 403 }
+      );
+    }
+
+    // Only owner and admin can edit quantity
+    // Members have read-only access
+    if (membership.role !== "owner" && membership.role !== "admin") {
+      return NextResponse.json(
+        { error: "You don't have permission to edit this wine. Members have read-only access." },
+        { status: 403 }
+      );
+    }
+
+    // Update quantity in the OWNER's user_wines record (not the current user's)
+    // This ensures all members see the same quantity
     const { error: quantityError } = await authenticatedSupabase
       .from("user_wines")
       .update({
         quantity: quantityNum,
       })
-      .eq("user_id", user.id)
+      .eq("user_id", cellar.owner_id)
       .eq("wine_id", wineId);
 
     if (quantityError) {
