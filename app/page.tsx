@@ -134,25 +134,28 @@ export default function Home() {
 
       {/* Header */}
       <header className="relative z-10 sticky top-0 bg-background/80 backdrop-blur-xl border-b border-border/50">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex-1 min-w-0">
-              {/* Cellar Switcher */}
-              <CellarSwitcher onSettingsClick={handleCellarSettings} />
+        <div className="container mx-auto px-4 py-3 sm:py-4">
+          <div className="flex items-center justify-between gap-2 sm:gap-3">
+            <div className="flex-1 min-w-0 flex items-center gap-2 sm:gap-3 flex-wrap">
+              {/* Wine Icon */}
+              <WineIcon className="h-5 w-5 text-primary shrink-0" />
               
-              {/* Stats */}
+              {/* Cellar Name with Shared Icon */}
+              <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
+                <CellarSwitcher onSettingsClick={handleCellarSettings} />
+                
+                {/* Shared Icon - Red */}
+                {activeCellar?.is_shared && (
+                  <Users className="h-4 w-4 text-primary shrink-0" />
+                )}
+              </div>
+              
+              {/* Stats - Next to cellar name, wraps on very small screens */}
               {wines.length > 0 && (
-                <div className="flex items-center gap-2 mt-1 text-sm text-muted-foreground pl-2">
-                  <span>
-                    {stats.activeWines} {stats.activeWines === 1 ? "wine" : "wines"} •{" "}
-                    {stats.totalBottles} bottles
+                <div className="flex items-center gap-1 text-xs sm:text-sm text-muted-foreground shrink-0">
+                  <span className="whitespace-nowrap">
+                    {stats.activeWines} {stats.activeWines === 1 ? "wine" : "wines"} • {stats.totalBottles} bottles
                   </span>
-                  {activeCellar?.is_shared && (
-                    <span className="flex items-center gap-1 text-primary">
-                      <Users className="h-3 w-3" />
-                      Shared
-                    </span>
-                  )}
                 </div>
               )}
             </div>

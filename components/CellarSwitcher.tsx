@@ -85,15 +85,11 @@ export function CellarSwitcher({ className, onSettingsClick }: CellarSwitcherPro
           <Button
             variant="ghost"
             className={cn(
-              "gap-2 max-w-[200px] justify-start font-normal",
+              "gap-2 max-w-[200px] justify-start font-normal p-0 h-auto",
               className
             )}
           >
-            <Wine className="h-4 w-4 text-primary shrink-0" />
-            <span className="truncate">{activeCellar.name}</span>
-            {activeCellar.is_shared && (
-              <Users className="h-3 w-3 text-muted-foreground shrink-0" />
-            )}
+            <span className="truncate font-medium">{activeCellar.name}</span>
             <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0 ml-auto" />
           </Button>
         </DropdownMenuTrigger>
