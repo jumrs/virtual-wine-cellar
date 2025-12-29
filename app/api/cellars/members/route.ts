@@ -86,28 +86,47 @@ export async function GET(request: NextRequest) {
     if (userIds.length > 0) {
       // Try to get profiles first
       const { data: profiles } = await authenticatedSupabase
-        .from("profiles")
-        .select("id, email, name, username, avatar_url")
+        .from("user_profiles")
+        .select("id, name, username, avatar_url")
         .in("id", userIds);
 
       if (profiles) {
         profilesMap = profiles.reduce((acc: Record<string, any>, p: any) => {
-          acc[p.id] = p;
+          acc[p.id] = {
+            id: p.id,
+            name: p.name,
+            username: p.username,
+            avatar_url: p.avatar_url,
+            email: null, // Will be filled from auth.users
+          };
           return acc;
         }, {});
       }
 
-      // For users without profiles, try to get their email from auth.users
+      // Get email addresses from auth.users for all users
       // This requires service role key
-      const missingUserIds = userIds.filter((id: string) => !profilesMap[id] || !profilesMap[id].email);
-      if (missingUserIds.length > 0) {
-        // Try to get user info from auth.users using admin API
-        for (const userId of missingUserIds) {
-          try {
-            const { data: authUser } = await authenticatedSupabase.auth.admin.getUserById(userId);
-            if (authUser?.user) {
-              const email = authUser.user.email;
-              const metadata = authUser.user.user_metadata || {};
+      for (const userId of userIds) {
+        try {
+          const { data: authUser } = await authenticatedSupabase.auth.admin.getUserById(userId);
+          if (authUser?.user) {
+            const email = authUser.user.email;
+            const metadata = authUser.user.user_metadata || {};
+            
+            // Merge with existing profile data or create new entry
+            if (profilesMap[userId]) {
+              profilesMap[userId].email = email;
+              // Only override name/username/avatar if not already in profile
+              if (!profilesMap[userId].name) {
+                profilesMap[userId].name = metadata.full_name || metadata.name || null;
+              }
+              if (!profilesMap[userId].username) {
+                profilesMap[userId].username = metadata.username || (email ? email.split('@')[0] : null);
+              }
+              if (!profilesMap[userId].avatar_url) {
+                profilesMap[userId].avatar_url = metadata.avatar_url || null;
+              }
+            } else {
+              // No profile found, create from auth data
               profilesMap[userId] = {
                 id: userId,
                 email: email,
@@ -115,18 +134,9 @@ export async function GET(request: NextRequest) {
                 username: metadata.username || (email ? email.split('@')[0] : null),
                 avatar_url: metadata.avatar_url || null,
               };
-            } else {
-              // Set placeholder if we can't get user info
-              profilesMap[userId] = profilesMap[userId] || {
-                id: userId,
-                email: null,
-                name: null,
-                username: null,
-                avatar_url: null,
-              };
             }
-          } catch (err) {
-            // If admin API fails, use existing profile data or placeholder
+          } else {
+            // Set placeholder if we can't get user info
             profilesMap[userId] = profilesMap[userId] || {
               id: userId,
               email: null,
@@ -135,6 +145,15 @@ export async function GET(request: NextRequest) {
               avatar_url: null,
             };
           }
+        } catch (err) {
+          // If admin API fails, use existing profile data or placeholder
+          profilesMap[userId] = profilesMap[userId] || {
+            id: userId,
+            email: null,
+            name: null,
+            username: null,
+            avatar_url: null,
+          };
         }
       }
     }

@@ -17,8 +17,6 @@ import {
   Mail,
   Crown,
   Trash2,
-  Copy,
-  Check,
   X,
   Shield,
   UserCircle,
@@ -67,7 +65,6 @@ export function ShareCellarDialog({
   const [savingName, setSavingName] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const [copied, setCopied] = useState(false);
 
   const isOwner = cellar.owner_id === user?.id;
   const currentUserMember = members.find((m) => m.user_id === user?.id);
@@ -223,17 +220,6 @@ export function ShareCellarDialog({
     }
   };
 
-  const copyShareLink = () => {
-    const shareText = `Join my wine cellar "${cellar.name}"`;
-    navigator.clipboard.writeText(shareText);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-    toast({
-      title: "Copied",
-      description: "Share text copied to clipboard",
-    });
-  };
-
   const getMemberDisplayName = (member: CellarMember) => {
     if (member.user?.name) return member.user.name;
     if (member.user?.username) return member.user.username;
@@ -382,13 +368,15 @@ export function ShareCellarDialog({
                     >
                       {/* Avatar */}
                       {member.user?.avatar_url ? (
-                        <Image
-                          src={member.user.avatar_url}
-                          alt={getMemberDisplayName(member)}
-                          width={44}
-                          height={44}
-                          className="rounded-full"
-                        />
+                        <div className="w-11 h-11 rounded-full overflow-hidden border-2 border-border flex-shrink-0">
+                          <Image
+                            src={member.user.avatar_url}
+                            alt={getMemberDisplayName(member)}
+                            width={44}
+                            height={44}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
                       ) : (
                         <div className="w-11 h-11 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
                           <span className="text-base font-semibold text-primary">
@@ -409,11 +397,6 @@ export function ShareCellarDialog({
                         </div>
                         <div className="flex items-center gap-2 mt-1">
                           {getRoleBadge(member.role)}
-                          {member.user?.email && member.user.email !== getMemberDisplayName(member) && (
-                            <span className="text-xs text-muted-foreground truncate">
-                              {member.user.email}
-                            </span>
-                          )}
                         </div>
                       </div>
 
@@ -520,21 +503,6 @@ export function ShareCellarDialog({
             </div>
           )}
 
-          {/* Share Link */}
-          <div className="pt-2">
-            <Button
-              variant="outline"
-              onClick={copyShareLink}
-              className="rounded-xl h-10 gap-2 w-full"
-            >
-              {copied ? (
-                <Check className="h-4 w-4 text-green-500" />
-              ) : (
-                <Copy className="h-4 w-4" />
-              )}
-              Copy Share Text
-            </Button>
-          </div>
         </div>
 
         {/* Footer Actions */}
