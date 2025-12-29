@@ -28,6 +28,8 @@ export const revalidate = 0;
 
 /**
  * GET /api/wines - Fetch user's wine collection
+ * Query params:
+ * - cellarId: Fetch wines for a specific cellar (optional, defaults to legacy user_wines lookup)
  */
 export async function GET(request: NextRequest) {
   try {
@@ -45,8 +47,93 @@ export async function GET(request: NextRequest) {
     if (isAuthError(auth)) return auth;
 
     const { user, authenticatedSupabase } = auth;
+    const cellarId = getQueryParam(request, "cellarId");
 
-    // Fetch wines with all fields including grapes
+    // If cellarId is provided, use cellar-based query
+    if (cellarId) {
+      if (!isValidUUID(cellarId)) {
+        return errorResponse("Invalid cellar ID format", 400);
+      }
+
+      // Verify user has access to this cellar
+      const { data: membership, error: membershipError } = await authenticatedSupabase
+        .from("cellar_members")
+        .select("id")
+        .eq("cellar_id", cellarId)
+        .eq("user_id", user.id)
+        .single();
+
+      if (membershipError || !membership) {
+        return errorResponse("Access denied to this cellar", 403);
+      }
+
+      // Fetch wines for the cellar
+      const { data: wines, error } = await authenticatedSupabase
+        .from("wines")
+        .select(`
+          id,
+          name,
+          type,
+          grape,
+          grapes,
+          is_blend,
+          region,
+          country,
+          vintage,
+          score,
+          label_image_url,
+          notes,
+          cellar_id,
+          created_at
+        `)
+        .eq("cellar_id", cellarId)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+
+      // Get quantities from user_wines for backward compatibility display
+      const wineIds = wines?.map((w: any) => w.id) || [];
+      let quantityMap: Record<string, number> = {};
+      
+      if (wineIds.length > 0) {
+        const { data: userWines } = await authenticatedSupabase
+          .from("user_wines")
+          .select("wine_id, quantity, date_added")
+          .in("wine_id", wineIds);
+        
+        if (userWines) {
+          quantityMap = userWines.reduce((acc: Record<string, any>, uw: any) => {
+            acc[uw.wine_id] = { quantity: uw.quantity || 1, date_added: uw.date_added };
+            return acc;
+          }, {});
+        }
+      }
+
+      const formatted = wines?.map((w: any) => ({
+        id: w.id,
+        name: w.name,
+        type: w.type,
+        grape: w.grape,
+        grapes: w.grapes ?? [],
+        is_blend: w.is_blend ?? (w.grapes?.length > 1 || false),
+        region: w.region,
+        country: w.country,
+        vintage: w.vintage,
+        score: w.score ?? null,
+        label_image_url: w.label_image_url,
+        notes: w.notes,
+        cellar_id: w.cellar_id,
+        date_added: quantityMap[w.id]?.date_added || w.created_at,
+        quantity: quantityMap[w.id]?.quantity || 1,
+      })) || [];
+
+      const response = successResponse(formatted);
+      response.headers.set("Cache-Control", "no-store");
+      response.headers.set("Vary", "Authorization");
+      return response;
+    }
+
+    // Legacy: Fetch wines via user_wines (backward compatibility)
     const { data: wines, error } = await authenticatedSupabase
       .from("user_wines")
       .select(`
@@ -65,7 +152,8 @@ export async function GET(request: NextRequest) {
           vintage,
           score,
           label_image_url,
-          notes
+          notes,
+          cellar_id
         )
       `)
       .eq("user_id", user.id)
@@ -82,7 +170,7 @@ export async function GET(request: NextRequest) {
             date_added,
             wines (
               id, name, type, grape, grapes, is_blend,
-              region, country, vintage, score, label_image_url, notes
+              region, country, vintage, score, label_image_url, notes, cellar_id
             )
           `)
           .eq("user_id", user.id)
@@ -112,6 +200,8 @@ export async function GET(request: NextRequest) {
 
 /**
  * POST /api/wines - Add new wine to collection
+ * Body params (in wineData JSON):
+ * - cellarId: Add wine to a specific cellar (optional, falls back to user_wines for backward compat)
  */
 export async function POST(request: NextRequest) {
   try {
@@ -147,10 +237,29 @@ export async function POST(request: NextRequest) {
 
     // Sanitize wine data
     const wineData = sanitizeWineData(rawWineData);
+    const cellarId = rawWineData.cellarId;
 
     // Validate required field
     if (!wineData.name || typeof wineData.name !== "string" || wineData.name.length < 1) {
       return errorResponse("Wine name is required", 400);
+    }
+
+    // If cellarId is provided, verify access
+    if (cellarId) {
+      if (!isValidUUID(cellarId)) {
+        return errorResponse("Invalid cellar ID format", 400);
+      }
+
+      const { data: membership, error: membershipError } = await authenticatedSupabase
+        .from("cellar_members")
+        .select("id")
+        .eq("cellar_id", cellarId)
+        .eq("user_id", user.id)
+        .single();
+
+      if (membershipError || !membership) {
+        return errorResponse("Access denied to this cellar", 403);
+      }
     }
 
     // Upload image if provided
@@ -168,7 +277,7 @@ export async function POST(request: NextRequest) {
     const grapes = normalizeGrapes(wineData.grapes as string[] | undefined, wineData.grape as string | undefined);
     const isBlend = grapes.length > 1;
 
-    // Insert wine
+    // Insert wine with cellar_id if provided
     const { data: wine, error: wineError } = await authenticatedSupabase
       .from("wines")
       .insert({
@@ -183,6 +292,7 @@ export async function POST(request: NextRequest) {
         score: wineData.score ?? null,
         label_image_url: imageUrl || null,
         notes: wineData.notes || null,
+        cellar_id: cellarId || null,
       })
       .select()
       .single();
@@ -192,8 +302,7 @@ export async function POST(request: NextRequest) {
       return errorResponse(`Database error: ${wineError.message}`, 500);
     }
 
-    // Link wine to user
-    // Ensure quantity is a valid number (sanitizeWineData validates it, but TypeScript doesn't know the type)
+    // Link wine to user via user_wines (for backward compatibility and quantity tracking)
     const rawQuantity = wineData.quantity;
     const quantityNum = typeof rawQuantity === "number" ? rawQuantity : 
                         (typeof rawQuantity === "string" ? parseInt(rawQuantity, 10) : 1);
@@ -213,7 +322,7 @@ export async function POST(request: NextRequest) {
       return errorResponse(`Failed to link wine: ${linkError.message}`, 500);
     }
 
-    return successResponse({ success: true, wine });
+    return successResponse({ success: true, wine: { ...wine, quantity } });
   } catch (error: any) {
     logApiError("POST /api/wines", error);
     return errorResponse(error.message || "Failed to save wine");
@@ -394,6 +503,7 @@ function formatWineResponse(wines: any[] | null, hasQuantity: boolean) {
       score: uw.wines.score ?? null,
       label_image_url: uw.wines.label_image_url,
       notes: uw.wines.notes,
+      cellar_id: uw.wines.cellar_id,
       date_added: uw.date_added,
       quantity: hasQuantity ? (uw.quantity ?? 1) : 1,
     })) || []

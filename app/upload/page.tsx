@@ -1,9 +1,10 @@
 "use client";
 
 import { useAuth } from "@/components/AuthProvider";
+import { useCellar } from "@/components/CellarProvider";
 import { UploadForm } from "@/components/UploadForm";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Wine } from "lucide-react";
+import { ArrowLeft, Wine, Users } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
@@ -11,6 +12,7 @@ import { BottomNav } from "@/components/BottomNav";
 
 export default function UploadPage() {
   const { user, loading } = useAuth();
+  const { activeCellar, loading: loadingCellar } = useCellar();
   const router = useRouter();
 
   useEffect(() => {
@@ -19,7 +21,7 @@ export default function UploadPage() {
     }
   }, [user, loading, router]);
 
-  if (loading) {
+  if (loading || loadingCellar) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
@@ -47,7 +49,15 @@ export default function UploadPage() {
                 <ArrowLeft className="h-5 w-5" />
               </Button>
             </Link>
-            <h1 className="text-xl font-semibold font-serif">Add Wine</h1>
+            <div>
+              <h1 className="text-xl font-semibold font-serif">Add Wine</h1>
+              {activeCellar && (
+                <p className="text-xs text-muted-foreground flex items-center gap-1">
+                  Adding to: {activeCellar.name}
+                  {activeCellar.is_shared && <Users className="h-3 w-3" />}
+                </p>
+              )}
+            </div>
           </div>
         </div>
       </header>
@@ -55,7 +65,7 @@ export default function UploadPage() {
       {/* Main Content */}
       <main className="container mx-auto px-4 py-6 page-container">
         <div className="max-w-md mx-auto">
-          <UploadForm />
+          <UploadForm cellarId={activeCellar?.id} />
         </div>
       </main>
 

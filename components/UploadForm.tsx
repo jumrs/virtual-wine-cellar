@@ -36,7 +36,12 @@ interface WineWithFile {
 
 const MAX_FILES = 5;
 
-export function UploadForm() {
+interface UploadFormProps {
+  /** Cellar ID to add wines to */
+  cellarId?: string;
+}
+
+export function UploadForm({ cellarId }: UploadFormProps) {
   const [wines, setWines] = useState<WineWithFile[]>([]);
   const [analyzingAll, setAnalyzingAll] = useState(false);
   const [savingAll, setSavingAll] = useState(false);
@@ -267,7 +272,11 @@ export function UploadForm() {
 
       const formData = new FormData();
       formData.append("image", wine.file);
-      formData.append("wineData", JSON.stringify({ ...wine.extractedData, quantity: wine.quantity }));
+      formData.append("wineData", JSON.stringify({ 
+        ...wine.extractedData, 
+        quantity: wine.quantity,
+        cellarId: cellarId || undefined,
+      }));
 
       const response = await fetch("/api/wines", {
         method: "POST",

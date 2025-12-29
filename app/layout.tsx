@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { DM_Sans, Cormorant_Garamond } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/components/AuthProvider";
+import { CellarProvider } from "@/components/CellarProvider";
 import { Toaster } from "@/components/ui/toaster";
 
 const dmSans = DM_Sans({ 
@@ -41,8 +42,10 @@ export default function RootLayout({
     <html lang="en" className={`${dmSans.variable} ${cormorant.variable}`}>
       <body className={dmSans.className}>
         <AuthProvider>
-          {children}
-          <Toaster />
+          <CellarProvider>
+            {children}
+            <Toaster />
+          </CellarProvider>
         </AuthProvider>
       </body>
     </html>

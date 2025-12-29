@@ -2,18 +2,22 @@
 
 import { useCallback, useMemo, useState, lazy, Suspense } from "react";
 import { useAuth } from "@/components/AuthProvider";
+import { useCellar } from "@/components/CellarProvider";
 import { WineCard } from "@/components/WineCard";
 import { Button } from "@/components/ui/button";
-import { LogIn, Wine as WineIcon, Camera } from "lucide-react";
+import { LogIn, Wine as WineIcon, Camera, Users } from "lucide-react";
 import Link from "next/link";
 import { ConfigCheck } from "@/components/ConfigCheck";
 import { WineFilters } from "@/components/WineFilters";
 import { BottomNav } from "@/components/BottomNav";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { EmptyState } from "@/components/ui/empty-state";
-import { useWines, invalidateWineCache } from "@/hooks";
+import { useWines, invalidateWineCache, useCellarRealtime } from "@/hooks";
 import { separateWinesByQuantity, calculateWineStats } from "@/lib/wineUtils";
-import type { Wine } from "@/types";
+import { CellarSwitcher } from "@/components/CellarSwitcher";
+import { ShareCellarDialog } from "@/components/ShareCellarDialog";
+import { PendingInvites } from "@/components/PendingInvites";
+import type { Wine, Cellar } from "@/types";
 
 // Lazy load EditWineDialog - only loaded when editing
 const EditWineDialog = lazy(() =>
@@ -22,12 +26,23 @@ const EditWineDialog = lazy(() =>
 
 export default function Home() {
   const { user, profile, loading } = useAuth();
+  const { activeCellar, loading: loadingCellar } = useCellar();
   const { wines, loading: loadingWines, fetchWines, deleteWine } = useWines({
-    autoFetch: !!user,
+    autoFetch: !!user && !!activeCellar,
+    cellarId: activeCellar?.id,
   });
   const [filteredWines, setFilteredWines] = useState<Wine[]>([]);
   const [editingWine, setEditingWine] = useState<Wine | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [cellarSettingsOpen, setCellarSettingsOpen] = useState(false);
+  const [settingsCellar, setSettingsCellar] = useState<Cellar | null>(null);
+
+  // Real-time subscriptions for cellar changes
+  useCellarRealtime({
+    cellarId: activeCellar?.id,
+    onWinesChange: fetchWines,
+    showNotifications: true,
+  });
 
   // Memoized wine separation
   const { active: activeWines, ranOut: ranOutWines } = useMemo(
@@ -72,14 +87,23 @@ export default function Home() {
     setFilteredWines(filtered);
   }, []);
 
-  // Display name computation
+  // Display name computation - use cellar name if available
   const displayName = useMemo(() => {
+    if (activeCellar?.name) {
+      return activeCellar.name;
+    }
     const name = profile?.name || profile?.username || user?.email?.split("@")[0] || "My";
     return name === "My" ? "My Cellar" : `${name}'s Cellar`;
-  }, [profile, user]);
+  }, [profile, user, activeCellar]);
+
+  // Handle cellar settings click
+  const handleCellarSettings = useCallback((cellar: Cellar) => {
+    setSettingsCellar(cellar);
+    setCellarSettingsOpen(true);
+  }, []);
 
   // Loading state
-  if (loading) {
+  if (loading || loadingCellar) {
     return <LoadingSpinner fullScreen message="Loading your cellar..." size="lg" />;
   }
 
@@ -109,15 +133,26 @@ export default function Home() {
 
       {/* Header */}
       <header className="relative z-10 sticky top-0 bg-background/80 backdrop-blur-xl border-b border-border/50">
-        <div className="container mx-auto px-4 py-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold font-serif">{displayName}</h1>
+        <div className="container mx-auto px-4 py-4">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex-1 min-w-0">
+              {/* Cellar Switcher */}
+              <CellarSwitcher onSettingsClick={handleCellarSettings} />
+              
+              {/* Stats */}
               {wines.length > 0 && (
-                <p className="text-sm text-muted-foreground">
-                  {stats.activeWines} {stats.activeWines === 1 ? "wine" : "wines"} •{" "}
-                  {stats.totalBottles} bottles
-                </p>
+                <div className="flex items-center gap-2 mt-1 text-sm text-muted-foreground pl-2">
+                  <span>
+                    {stats.activeWines} {stats.activeWines === 1 ? "wine" : "wines"} •{" "}
+                    {stats.totalBottles} bottles
+                  </span>
+                  {activeCellar?.is_shared && (
+                    <span className="flex items-center gap-1 text-primary">
+                      <Users className="h-3 w-3" />
+                      Shared
+                    </span>
+                  )}
+                </div>
               )}
             </div>
           </div>
@@ -125,6 +160,9 @@ export default function Home() {
       </header>
 
       <main className="relative z-10 flex-1 container mx-auto px-4 py-6 page-container">
+        {/* Pending Invites */}
+        <PendingInvites onInviteAccepted={fetchWines} />
+
         {loadingWines ? (
           <LoadingSpinner message="Loading your wines..." />
         ) : wines.length === 0 ? (
@@ -197,6 +235,15 @@ export default function Home() {
             onImageUpdate={fetchWines}
           />
         </Suspense>
+      )}
+
+      {/* Cellar Settings Dialog */}
+      {settingsCellar && (
+        <ShareCellarDialog
+          open={cellarSettingsOpen}
+          onOpenChange={setCellarSettingsOpen}
+          cellar={settingsCellar}
+        />
       )}
     </div>
   );
