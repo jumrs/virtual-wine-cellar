@@ -5,8 +5,6 @@ import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -21,13 +19,25 @@ import {
   Trash2,
   Copy,
   Check,
-  AlertCircle,
+  X,
+  Shield,
+  UserCircle,
+  Settings,
+  LogOut,
 } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useCellar } from "@/components/CellarProvider";
 import { useAuth } from "@/components/AuthProvider";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/lib/supabaseClient";
 import Image from "next/image";
+import { cn } from "@/lib/utils";
 import type { Cellar, CellarMember } from "@/types";
 
 interface ShareCellarDialogProps {
@@ -51,6 +61,7 @@ export function ShareCellarDialog({
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviting, setInviting] = useState(false);
   const [removingUserId, setRemovingUserId] = useState<string | null>(null);
+  const [updatingRoleUserId, setUpdatingRoleUserId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState(false);
   const [newName, setNewName] = useState(cellar.name);
   const [savingName, setSavingName] = useState(false);
@@ -59,6 +70,9 @@ export function ShareCellarDialog({
   const [copied, setCopied] = useState(false);
 
   const isOwner = cellar.owner_id === user?.id;
+  const currentUserMember = members.find((m) => m.user_id === user?.id);
+  const isAdmin = currentUserMember?.role === "admin";
+  const canManageMembers = isOwner || isAdmin;
 
   // Fetch members when dialog opens
   const fetchMembers = useCallback(async () => {
@@ -127,6 +141,51 @@ export function ShareCellarDialog({
     }
   };
 
+  const handleUpdateRole = async (userId: string, newRole: "admin" | "member") => {
+    setUpdatingRoleUserId(userId);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const accessToken = session?.access_token;
+
+      if (!accessToken) {
+        throw new Error("Not authenticated");
+      }
+
+      const response = await fetch("/api/cellars/members", {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          cellarId: cellar.id,
+          userId,
+          role: newRole,
+        }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || "Failed to update role");
+      }
+
+      toast({
+        title: "Role updated",
+        description: `Member role changed to ${newRole}.`,
+      });
+
+      fetchMembers();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update role",
+        variant: "destructive",
+      });
+    } finally {
+      setUpdatingRoleUserId(null);
+    }
+  };
+
   const handleLeaveCellar = async () => {
     const success = await leaveCellar(cellar.id);
     if (success) {
@@ -165,7 +224,6 @@ export function ShareCellarDialog({
   };
 
   const copyShareLink = () => {
-    // In a real implementation, this would generate an invite link
     const shareText = `Join my wine cellar "${cellar.name}"`;
     navigator.clipboard.writeText(shareText);
     setCopied(true);
@@ -176,23 +234,72 @@ export function ShareCellarDialog({
     });
   };
 
+  const getMemberDisplayName = (member: CellarMember) => {
+    if (member.user?.name) return member.user.name;
+    if (member.user?.username) return member.user.username;
+    if (member.user?.email) return member.user.email.split('@')[0];
+    return "Unknown User";
+  };
+
+  const getMemberInitial = (member: CellarMember) => {
+    const name = getMemberDisplayName(member);
+    return name[0]?.toUpperCase() || "?";
+  };
+
+  const getRoleBadge = (role: string) => {
+    switch (role) {
+      case "owner":
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+            <Crown className="h-3 w-3" />
+            Owner
+          </span>
+        );
+      case "admin":
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
+            <Shield className="h-3 w-3" />
+            Admin
+          </span>
+        );
+      default:
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-muted text-muted-foreground">
+            <UserCircle className="h-3 w-3" />
+            Member
+          </span>
+        );
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Users className="h-5 w-5 text-primary" />
-            Cellar Settings
-          </DialogTitle>
-          <DialogDescription>
-            Manage your cellar and share it with others.
-          </DialogDescription>
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto p-0 gap-0 rounded-3xl">
+        {/* Header */}
+        <DialogHeader className="p-6 pb-4 border-b">
+          <div className="flex items-center justify-between">
+            <DialogTitle className="font-serif text-2xl flex items-center gap-3">
+              <Settings className="h-6 w-6 text-primary" />
+              Cellar Settings
+            </DialogTitle>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => onOpenChange(false)}
+              className="w-8 h-8 rounded-full"
+            >
+              <X className="w-4 h-4" />
+            </Button>
+          </div>
         </DialogHeader>
 
-        <div className="space-y-6 py-4">
+        <div className="p-6 space-y-6">
           {/* Cellar Name */}
-          <div className="space-y-2">
-            <Label>Cellar Name</Label>
+          <div className="space-y-3">
+            <Label className="text-sm font-medium flex items-center gap-2">
+              <Crown className="w-4 h-4 text-muted-foreground" />
+              Cellar Name
+            </Label>
             {editingName ? (
               <div className="flex gap-2">
                 <Input
@@ -200,11 +307,13 @@ export function ShareCellarDialog({
                   onChange={(e) => setNewName(e.target.value)}
                   disabled={savingName}
                   maxLength={100}
+                  className="elegant-input h-11 rounded-xl"
                 />
                 <Button
                   size="sm"
                   onClick={handleSaveName}
                   disabled={savingName || !newName.trim()}
+                  className="rounded-xl h-11 px-4"
                 >
                   {savingName ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -220,18 +329,20 @@ export function ShareCellarDialog({
                     setNewName(cellar.name);
                   }}
                   disabled={savingName}
+                  className="rounded-xl h-11"
                 >
                   Cancel
                 </Button>
               </div>
             ) : (
-              <div className="flex items-center justify-between">
-                <span className="font-medium">{cellar.name}</span>
+              <div className="flex items-center justify-between bg-muted/50 rounded-xl p-3">
+                <span className="font-medium text-lg">{cellar.name}</span>
                 {isOwner && (
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={() => setEditingName(true)}
+                    className="rounded-lg h-8 text-xs"
                   >
                     Edit
                   </Button>
@@ -241,104 +352,146 @@ export function ShareCellarDialog({
           </div>
 
           {/* Members List */}
-          <div className="space-y-2">
-            <Label className="flex items-center gap-2">
+          <div className="space-y-3">
+            <Label className="text-sm font-medium flex items-center gap-2">
+              <Users className="w-4 h-4 text-muted-foreground" />
               Members
               {members.length > 0 && (
-                <span className="text-xs text-muted-foreground">
-                  ({members.length})
+                <span className="text-xs text-muted-foreground bg-muted rounded-full px-2 py-0.5">
+                  {members.length}
                 </span>
               )}
             </Label>
-            <div className="border rounded-lg divide-y max-h-[200px] overflow-y-auto">
+            <div className="bg-muted/30 rounded-2xl overflow-hidden">
               {loadingMembers ? (
-                <div className="p-4 text-center text-muted-foreground">
-                  <Loader2 className="h-4 w-4 animate-spin mx-auto mb-2" />
-                  Loading members...
+                <div className="p-6 text-center text-muted-foreground">
+                  <Loader2 className="h-5 w-5 animate-spin mx-auto mb-2" />
+                  <span className="text-sm">Loading members...</span>
                 </div>
               ) : members.length === 0 ? (
-                <div className="p-4 text-center text-muted-foreground">
-                  No members yet
+                <div className="p-6 text-center text-muted-foreground">
+                  <Users className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                  <span className="text-sm">No members yet</span>
                 </div>
               ) : (
-                members.map((member) => (
-                  <div
-                    key={member.id}
-                    className="flex items-center gap-3 p-3"
-                  >
-                    {/* Avatar */}
-                    {member.user?.avatar_url ? (
-                      <Image
-                        src={member.user.avatar_url}
-                        alt={member.user.name || "User"}
-                        width={36}
-                        height={36}
-                        className="rounded-full"
-                      />
-                    ) : (
-                      <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center">
-                        <span className="text-sm font-medium text-primary">
-                          {(member.user?.name || member.user?.email || "?")[0].toUpperCase()}
-                        </span>
-                      </div>
-                    )}
+                <div className="divide-y divide-border/50">
+                  {members.map((member) => (
+                    <div
+                      key={member.id}
+                      className="flex items-center gap-3 p-4 hover:bg-muted/50 transition-colors"
+                    >
+                      {/* Avatar */}
+                      {member.user?.avatar_url ? (
+                        <Image
+                          src={member.user.avatar_url}
+                          alt={getMemberDisplayName(member)}
+                          width={44}
+                          height={44}
+                          className="rounded-full"
+                        />
+                      ) : (
+                        <div className="w-11 h-11 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                          <span className="text-base font-semibold text-primary">
+                            {getMemberInitial(member)}
+                          </span>
+                        </div>
+                      )}
 
-                    {/* Info */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium truncate">
-                          {member.user?.name || member.user?.username || member.user?.email || "Unknown"}
-                        </span>
-                        {member.role === "owner" && (
-                          <Crown className="h-3 w-3 text-yellow-500" />
-                        )}
-                        {member.user_id === user?.id && (
-                          <span className="text-xs text-muted-foreground">(you)</span>
-                        )}
+                      {/* Info */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-medium truncate">
+                            {getMemberDisplayName(member)}
+                          </span>
+                          {member.user_id === user?.id && (
+                            <span className="text-xs text-muted-foreground">(you)</span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 mt-1">
+                          {getRoleBadge(member.role)}
+                          {member.user?.email && member.user.email !== getMemberDisplayName(member) && (
+                            <span className="text-xs text-muted-foreground truncate">
+                              {member.user.email}
+                            </span>
+                          )}
+                        </div>
                       </div>
-                      {member.user?.email && (
-                        <span className="text-xs text-muted-foreground truncate block">
-                          {member.user.email}
-                        </span>
+
+                      {/* Actions */}
+                      {member.role !== "owner" && member.user_id !== user?.id && (
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          {/* Role Select - only for owner */}
+                          {isOwner && (
+                            <Select
+                              value={member.role}
+                              onValueChange={(value) => handleUpdateRole(member.user_id, value as "admin" | "member")}
+                              disabled={updatingRoleUserId === member.user_id}
+                            >
+                              <SelectTrigger className="w-[110px] h-9 rounded-lg text-xs">
+                                {updatingRoleUserId === member.user_id ? (
+                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                ) : (
+                                  <SelectValue />
+                                )}
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="admin">
+                                  <div className="flex items-center gap-2">
+                                    <Shield className="h-3 w-3 text-blue-500" />
+                                    Admin
+                                  </div>
+                                </SelectItem>
+                                <SelectItem value="member">
+                                  <div className="flex items-center gap-2">
+                                    <UserCircle className="h-3 w-3" />
+                                    Member
+                                  </div>
+                                </SelectItem>
+                              </SelectContent>
+                            </Select>
+                          )}
+
+                          {/* Remove Button */}
+                          {(isOwner || (isAdmin && member.role === "member")) && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-9 w-9 text-destructive hover:text-destructive hover:bg-destructive/10 rounded-lg"
+                              onClick={() => handleRemoveMember(member.user_id)}
+                              disabled={removingUserId === member.user_id}
+                            >
+                              {removingUserId === member.user_id ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <Trash2 className="h-4 w-4" />
+                              )}
+                            </Button>
+                          )}
+                        </div>
                       )}
                     </div>
-
-                    {/* Actions */}
-                    {isOwner && member.user_id !== user?.id && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                        onClick={() => handleRemoveMember(member.user_id)}
-                        disabled={removingUserId === member.user_id}
-                      >
-                        {removingUserId === member.user_id ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <Trash2 className="h-4 w-4" />
-                        )}
-                      </Button>
-                    )}
-                  </div>
-                ))
+                  ))}
+                </div>
               )}
             </div>
           </div>
 
           {/* Invite Section */}
-          {isOwner && (
-            <div className="space-y-2">
-              <Label htmlFor="invite-email">Invite Member</Label>
+          {canManageMembers && (
+            <div className="space-y-3">
+              <Label className="text-sm font-medium flex items-center gap-2">
+                <UserPlus className="w-4 h-4 text-muted-foreground" />
+                Invite Member
+              </Label>
               <div className="flex gap-2">
                 <div className="relative flex-1">
                   <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
-                    id="invite-email"
                     type="email"
                     placeholder="email@example.com"
                     value={inviteEmail}
                     onChange={(e) => setInviteEmail(e.target.value)}
-                    className="pl-10"
+                    className="elegant-input h-11 pl-10 rounded-xl"
                     onKeyDown={(e) => {
                       if (e.key === "Enter" && !inviting) {
                         handleInvite();
@@ -349,6 +502,7 @@ export function ShareCellarDialog({
                 <Button
                   onClick={handleInvite}
                   disabled={!inviteEmail.trim() || inviting}
+                  className="rounded-xl h-11 px-5"
                 >
                   {inviting ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -361,19 +515,17 @@ export function ShareCellarDialog({
                 </Button>
               </div>
               <p className="text-xs text-muted-foreground">
-                If the user already has an account, they'll be added immediately.
-                Otherwise, they'll receive an invite when they sign up.
+                The user will receive an invitation they can accept or decline.
               </p>
             </div>
           )}
 
           {/* Share Link */}
-          <div className="flex items-center gap-2 pt-2 border-t">
+          <div className="pt-2">
             <Button
               variant="outline"
-              size="sm"
               onClick={copyShareLink}
-              className="gap-2"
+              className="rounded-xl h-10 gap-2 w-full"
             >
               {copied ? (
                 <Check className="h-4 w-4 text-green-500" />
@@ -385,62 +537,62 @@ export function ShareCellarDialog({
           </div>
         </div>
 
-        <DialogFooter className="flex-col sm:flex-row gap-2">
-          {/* Leave / Delete */}
+        {/* Footer Actions */}
+        <div className="p-6 pt-4 border-t bg-muted/30 space-y-3">
           {isOwner ? (
-            <div className="flex-1">
+            <>
               {confirmDelete ? (
-                <div className="flex items-center gap-2 text-sm text-destructive">
-                  <AlertCircle className="h-4 w-4" />
-                  <span>This will delete all wines in this cellar. Are you sure?</span>
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    onClick={handleDeleteCellar}
-                    disabled={deleting}
-                  >
-                    {deleting ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      "Delete"
-                    )}
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setConfirmDelete(false)}
-                    disabled={deleting}
-                  >
-                    Cancel
-                  </Button>
+                <div className="bg-destructive/10 border border-destructive/20 rounded-xl p-4">
+                  <p className="text-sm text-destructive mb-3 flex items-start gap-2">
+                    <Trash2 className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                    This will permanently delete the cellar and all its wines. This action cannot be undone.
+                  </p>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="destructive"
+                      onClick={handleDeleteCellar}
+                      disabled={deleting}
+                      className="rounded-xl flex-1"
+                    >
+                      {deleting ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        "Yes, Delete"
+                      )}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => setConfirmDelete(false)}
+                      disabled={deleting}
+                      className="rounded-xl flex-1"
+                    >
+                      Cancel
+                    </Button>
+                  </div>
                 </div>
               ) : (
                 <Button
-                  variant="ghost"
-                  className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                  variant="outline"
+                  className="w-full rounded-xl h-11 text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/30"
                   onClick={() => setConfirmDelete(true)}
                 >
                   <Trash2 className="h-4 w-4 mr-2" />
                   Delete Cellar
                 </Button>
               )}
-            </div>
+            </>
           ) : (
-            <div className="flex-1">
-              <Button
-                variant="ghost"
-                className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                onClick={handleLeaveCellar}
-              >
-                Leave Cellar
-              </Button>
-            </div>
+            <Button
+              variant="outline"
+              className="w-full rounded-xl h-11 text-destructive hover:text-destructive hover:bg-destructive/10 border-destructive/30"
+              onClick={handleLeaveCellar}
+            >
+              <LogOut className="h-4 w-4 mr-2" />
+              Leave Cellar
+            </Button>
           )}
-
-          <Button onClick={() => onOpenChange(false)}>Done</Button>
-        </DialogFooter>
+        </div>
       </DialogContent>
     </Dialog>
   );
 }
-

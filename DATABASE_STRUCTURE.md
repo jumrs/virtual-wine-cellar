@@ -86,7 +86,7 @@ CREATE TABLE cellar_members (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   cellar_id UUID NOT NULL REFERENCES cellars(id) ON DELETE CASCADE,
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  role TEXT NOT NULL CHECK (role IN ('owner', 'member')) DEFAULT 'member',
+  role TEXT NOT NULL CHECK (role IN ('owner', 'admin', 'member')) DEFAULT 'member',
   added_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   UNIQUE(cellar_id, user_id)
 );
@@ -229,8 +229,30 @@ CREATE POLICY "Users can insert wines to their cellars"
 
 | Role | Permissions |
 |------|-------------|
-| `owner` | Full access: view, add, edit, delete wines; manage members; rename/delete cellar |
+| `owner` | Full access: view, add, edit, delete wines; manage all members & roles; rename/delete cellar; invite members |
+| `admin` | Full access to wines: view, add, edit, delete; invite members; remove regular members (not other admins or owner) |
 | `member` | View, add, edit, delete wines in the cellar |
+
+### Role Hierarchy
+
+```
+Owner (highest)
+   │
+   ├── Can manage roles (promote/demote to admin/member)
+   ├── Can remove any member (including admins)
+   ├── Can rename the cellar
+   ├── Can delete the cellar
+   │
+Admin
+   │
+   ├── Can invite new members
+   ├── Can remove regular members (NOT admins or owner)
+   ├── Full edit access to all wines
+   │
+Member (lowest)
+   │
+   └── Can view, add, edit, delete wines
+```
 
 ---
 
@@ -288,6 +310,7 @@ This enables all members of a shared cellar to see changes (additions, edits, de
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | GET | `/api/cellars/members?cellarId=<id>` | List cellar members |
+| PATCH | `/api/cellars/members` | Update member role (body: `{cellarId, userId, role}`) |
 | DELETE | `/api/cellars/members?cellarId=<id>&userId=<id>` | Remove member |
 
 ### Invite API
@@ -317,9 +340,12 @@ This enables all members of a shared cellar to see changes (additions, edits, de
 3. **Owner-only operations** are enforced for:
    - Renaming cellars
    - Deleting cellars
-   - Removing members
-   - Creating/canceling invites
-4. **Invite tokens** are:
+   - Changing member roles (promote/demote)
+   - Removing admins
+4. **Owner and Admin operations**:
+   - Inviting new members
+   - Removing regular members
+5. **Invite tokens** are:
    - Cryptographically random (32 bytes hex)
    - Time-limited (7 days)
    - Single-use (deleted after acceptance)
@@ -330,7 +356,7 @@ This enables all members of a shared cellar to see changes (additions, edits, de
 ## Future Enhancements
 
 - Transfer cellar ownership
-- Granular member permissions (view-only, edit-only)
+- View-only member role
 - Activity log per cellar
 - Member avatars next to wine entries
 - Push notifications for changes

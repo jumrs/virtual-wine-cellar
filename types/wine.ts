@@ -44,7 +44,7 @@ export interface Cellar {
 }
 
 /** Membership role in a cellar */
-export type CellarRole = "owner" | "member";
+export type CellarRole = "owner" | "admin" | "member";
 
 /** A user's membership in a cellar */
 export interface CellarMember {

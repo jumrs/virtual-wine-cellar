@@ -78,7 +78,7 @@ export async function POST(request: NextRequest) {
       return errorResponse("You cannot invite yourself", 400);
     }
 
-    // Verify ownership
+    // Verify cellar exists and get user's role
     const { data: cellar, error: cellarError } = await authenticatedSupabase
       .from("cellars")
       .select("id, name, owner_id")
@@ -89,8 +89,23 @@ export async function POST(request: NextRequest) {
       return errorResponse("Cellar not found", 404);
     }
 
-    if (cellar.owner_id !== user.id) {
-      return errorResponse("Only the owner can invite members", 403);
+    // Check if user is owner or admin
+    const isOwner = cellar.owner_id === user.id;
+    let isAdmin = false;
+
+    if (!isOwner) {
+      const { data: membership } = await authenticatedSupabase
+        .from("cellar_members")
+        .select("role")
+        .eq("cellar_id", cellarId)
+        .eq("user_id", user.id)
+        .single();
+
+      isAdmin = membership?.role === "admin";
+    }
+
+    if (!isOwner && !isAdmin) {
+      return errorResponse("Only the owner or admins can invite members", 403);
     }
 
     // Check if user with this email exists
