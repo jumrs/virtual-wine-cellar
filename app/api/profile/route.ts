@@ -171,21 +171,44 @@ export async function PUT(request: NextRequest) {
       );
     }
 
+    // Get existing profile to preserve fields not being updated
+    const { data: existingProfile } = await supabase
+      .from("user_profiles")
+      .select("username, name, avatar_url")
+      .eq("id", user.id)
+      .single();
+
+    // Build update object, preserving existing values for fields not provided
+    const updateData: Record<string, any> = {
+      id: user.id,
+      updated_at: new Date().toISOString(),
+    };
+
+    // Only update fields that were explicitly provided
+    if (username !== undefined) {
+      updateData.username = username;
+    } else if (existingProfile?.username !== undefined) {
+      updateData.username = existingProfile.username;
+    }
+
+    if (name !== undefined) {
+      updateData.name = name;
+    } else if (existingProfile?.name !== undefined) {
+      updateData.name = existingProfile.name;
+    }
+
+    if (avatar_url !== undefined) {
+      updateData.avatar_url = avatar_url;
+    } else if (existingProfile?.avatar_url !== undefined) {
+      updateData.avatar_url = existingProfile.avatar_url;
+    }
+
     // Update or insert profile
     const { data: profile, error: profileError } = await supabase
       .from("user_profiles")
-      .upsert(
-        {
-          id: user.id,
-          username: username !== undefined ? username : null,
-          name: name !== undefined ? name : null,
-          avatar_url: avatar_url !== undefined ? avatar_url : null,
-          updated_at: new Date().toISOString(),
-        },
-        {
-          onConflict: "id",
-        }
-      )
+      .upsert(updateData, {
+        onConflict: "id",
+      })
       .select()
       .single();
 

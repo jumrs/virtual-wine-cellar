@@ -17,6 +17,7 @@ import { separateWinesByQuantity, calculateWineStats } from "@/lib/wineUtils";
 import { CellarSwitcher } from "@/components/CellarSwitcher";
 import { ShareCellarDialog } from "@/components/ShareCellarDialog";
 import { PendingInvites } from "@/components/PendingInvites";
+import { UserProfileMenu } from "@/components/UserProfileMenu";
 import type { Wine, Cellar } from "@/types";
 
 // Lazy load EditWineDialog - only loaded when editing
@@ -155,6 +156,9 @@ export default function Home() {
                 </div>
               )}
             </div>
+            
+            {/* User Profile Menu */}
+            <UserProfileMenu />
           </div>
         </div>
       </header>
