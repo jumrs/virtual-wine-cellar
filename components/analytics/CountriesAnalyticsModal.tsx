@@ -77,14 +77,27 @@ export function CountriesAnalyticsModal({ open, onOpenChange, wines }: Countries
       const country = wine.country || "Unknown";
       countryCount[country] = (countryCount[country] || 0) + 1;
     });
-    
-    return Object.entries(countryCount)
-      .map(([name, value]) => ({ 
-        name, 
+
+    const sortedCountries = Object.entries(countryCount)
+      .map(([name, value]) => ({
+        name,
         value,
         flag: COUNTRY_FLAGS[name] || "🍷",
       }))
       .sort((a, b) => b.value - a.value);
+
+    // Reorder for column-wise display: first column, then second column
+    const reordered: typeof sortedCountries = [];
+    const midPoint = Math.ceil(sortedCountries.length / 2);
+
+    for (let i = 0; i < midPoint; i++) {
+      reordered.push(sortedCountries[i]); // First column items
+      if (i + midPoint < sortedCountries.length) {
+        reordered.push(sortedCountries[i + midPoint]); // Second column items
+      }
+    }
+
+    return reordered;
   }, [wines]);
 
   // Calculate regions within top country
@@ -149,9 +162,9 @@ export function CountriesAnalyticsModal({ open, onOpenChange, wines }: Countries
 
         {/* Country List */}
         <div className="mt-4 space-y-2">
-          <div className="grid grid-cols-2 gap-2 max-h-[150px] overflow-y-auto">
+          <div className="grid grid-cols-2 gap-2 max-h-[200px] overflow-y-auto">
             {countryData.map((country, index) => (
-              <div 
+              <div
                 key={country.name}
                 className="flex items-center justify-between py-1.5 px-3 bg-muted/20 rounded-lg text-sm"
               >

@@ -22,6 +22,10 @@ interface WineCardProps {
   onEdit: (wine: WineType) => void;
   onImageUpdate?: () => void;
   onQuantityUpdate?: () => void;
+  /** Whether user can edit (owner or admin) */
+  canEdit?: boolean;
+  /** Whether user can delete wines (owner only) */
+  canDelete?: boolean;
   isRanOut?: boolean;
 }
 
@@ -84,6 +88,8 @@ export const WineCard = memo(function WineCard({
   onEdit,
   onImageUpdate,
   onQuantityUpdate,
+  canEdit = true,
+  canDelete = true,
   isRanOut = false,
 }: WineCardProps) {
   const [updatingQuantity, setUpdatingQuantity] = useState(false);
@@ -146,8 +152,11 @@ export const WineCard = memo(function WineCard({
   );
 
   const handleCardClick = useCallback(() => {
-    onEdit(wine);
-  }, [onEdit, wine]);
+    // Only allow editing if user has edit permissions
+    if (canEdit) {
+      onEdit(wine);
+    }
+  }, [onEdit, wine, canEdit]);
 
   const handleNotesClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
@@ -158,7 +167,8 @@ export const WineCard = memo(function WineCard({
     <>
       <div
         className={cn(
-          "wine-card cursor-pointer group",
+          "wine-card group",
+          canEdit ? "cursor-pointer" : "cursor-default",
           isRanOut && "opacity-50 grayscale",
           isPremium && "wine-card-premium"
         )}
@@ -262,26 +272,32 @@ export const WineCard = memo(function WineCard({
             </div>
           </div>
 
-          {/* Quantity Controls */}
-          <div className="flex items-center justify-center gap-3 pt-2 border-t border-border/50">
-            <button
-              className="quantity-btn"
-              onClick={(e) => handleQuantityChange(e, -1)}
-              disabled={updatingQuantity || (wine.quantity || 0) === 0}
-            >
-              <Minus className="w-4 h-4" />
-            </button>
-            <span className="text-sm font-medium w-8 text-center">
-              {wine.quantity || 0}
-            </span>
-            <button
-              className="quantity-btn"
-              onClick={(e) => handleQuantityChange(e, 1)}
-              disabled={updatingQuantity}
-            >
-              <Plus className="w-4 h-4" />
-            </button>
-          </div>
+          {/* Quantity Controls - Only show for users with edit permission */}
+          {canEdit ? (
+            <div className="flex items-center justify-center gap-3 pt-2 border-t border-border/50">
+              <button
+                className="quantity-btn"
+                onClick={(e) => handleQuantityChange(e, -1)}
+                disabled={updatingQuantity || (wine.quantity || 0) === 0}
+              >
+                <Minus className="w-4 h-4" />
+              </button>
+              <span className="text-sm font-medium w-8 text-center">
+                {wine.quantity || 0}
+              </span>
+              <button
+                className="quantity-btn"
+                onClick={(e) => handleQuantityChange(e, 1)}
+                disabled={updatingQuantity}
+              >
+                <Plus className="w-4 h-4" />
+              </button>
+            </div>
+          ) : (
+            <div className="text-xs text-muted-foreground pt-2 border-t border-border/50 text-center">
+              View only
+            </div>
+          )}
         </div>
       </div>
 

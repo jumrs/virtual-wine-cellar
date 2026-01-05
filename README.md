@@ -6,6 +6,8 @@ A modern web application for managing your wine collection with AI-powered label
 
 - 🍷 **Wine Label Recognition**: Upload a photo of a wine label and automatically extract details using OpenAI Vision API
 - 📚 **Inventory Management**: View and manage your personal wine collection
+- 👨‍👩‍👧‍👦 **Shared Cellars**: Share your wine cellar with family or friends for collaborative management
+- 🔄 **Real-time Sync**: See changes from other cellar members instantly
 - 🤖 **AI Pairing Assistant**: Get wine pairing suggestions based on your meals using GPT-4o
 - 🔐 **User Authentication**: Secure authentication with Supabase Auth
 - 📱 **Responsive Design**: Beautiful, mobile-friendly interface built with TailwindCSS and ShadCN/UI
@@ -39,61 +41,60 @@ npm install
 2. Go to SQL Editor and run the following SQL to create the database schema:
 
 ```sql
--- Create users table (Supabase Auth handles this, but we add subscription_status)
-ALTER TABLE auth.users ADD COLUMN IF NOT EXISTS subscription_status TEXT DEFAULT 'free';
-
 -- Create wines table
 CREATE TABLE IF NOT EXISTS wines (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL,
   grape TEXT,
+  grapes TEXT[],
+  is_blend BOOLEAN,
+  type TEXT,
   region TEXT,
+  country TEXT,
   vintage INTEGER,
+  score NUMERIC,
   label_image_url TEXT,
   notes TEXT,
+  cellar_id UUID REFERENCES cellars(id) ON DELETE CASCADE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Create user_wines junction table
+-- Create user_wines junction table (for quantity tracking)
 CREATE TABLE IF NOT EXISTS user_wines (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   wine_id UUID NOT NULL REFERENCES wines(id) ON DELETE CASCADE,
+  quantity INTEGER DEFAULT 1,
   date_added TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   UNIQUE(user_id, wine_id)
+);
+
+-- Create cellars table
+CREATE TABLE IF NOT EXISTS cellars (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT NOT NULL,
+  owner_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Create cellar_members table
+CREATE TABLE IF NOT EXISTS cellar_members (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  cellar_id UUID NOT NULL REFERENCES cellars(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  role TEXT NOT NULL CHECK (role IN ('owner', 'member')) DEFAULT 'member',
+  added_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  UNIQUE(cellar_id, user_id)
 );
 
 -- Enable Row Level Security
 ALTER TABLE wines ENABLE ROW LEVEL SECURITY;
 ALTER TABLE user_wines ENABLE ROW LEVEL SECURITY;
+ALTER TABLE cellars ENABLE ROW LEVEL SECURITY;
+ALTER TABLE cellar_members ENABLE ROW LEVEL SECURITY;
 
--- Create policies for user_wines
-CREATE POLICY "Users can view their own wines"
-  ON user_wines FOR SELECT
-  USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can insert their own wines"
-  ON user_wines FOR INSERT
-  WITH CHECK (auth.uid() = user_id);
-
-CREATE POLICY "Users can delete their own wines"
-  ON user_wines FOR DELETE
-  USING (auth.uid() = user_id);
-
--- Create policies for wines (users can view wines they own)
-CREATE POLICY "Users can view wines they own"
-  ON wines FOR SELECT
-  USING (
-    EXISTS (
-      SELECT 1 FROM user_wines
-      WHERE user_wines.wine_id = wines.id
-      AND user_wines.user_id = auth.uid()
-    )
-  );
-
-CREATE POLICY "Users can insert wines"
-  ON wines FOR INSERT
-  WITH CHECK (true);
+-- See supabase/migrations/001_shared_cellars.sql for complete RLS policies
 
 -- Create storage bucket for wine labels
 INSERT INTO storage.buckets (id, name, public) 
@@ -109,6 +110,8 @@ CREATE POLICY "Anyone can view wine labels"
   ON storage.objects FOR SELECT
   USING (bucket_id = 'wine-labels');
 ```
+
+> **Note**: Run `supabase/migrations/001_shared_cellars.sql` for complete schema including shared cellars feature and all RLS policies.
 
 3. Go to Settings > API and copy your:
    - Project URL
@@ -171,7 +174,7 @@ virtual-wine-cellar/
 1. **Sign Up/In**: Create an account or sign in with your email
 2. **Add Wines**: Go to "Add Wine" and upload a photo of a wine label
 3. **View Collection**: See all your wines on the dashboard
-4. **Get Pairings**: Visit the Pairings page and describe your meal to get AI suggestions
+4. **Get Pairings**: Visit the AI Sommelier page and describe your meal to get wine suggestions from your cellar
 
 ## Deployment
 
@@ -186,29 +189,54 @@ The app will automatically build and deploy.
 
 ## Database Schema
 
-- **users**: Managed by Supabase Auth (with optional subscription_status)
-- **wines**: Stores wine information (name, grape, region, vintage, etc.)
-- **user_wines**: Junction table linking users to their wines
+- **users**: Managed by Supabase Auth
+- **profiles**: User profile information (name, username, avatar)
+- **cellars**: Wine cellars that can be shared
+- **cellar_members**: Links users to cellars with roles (owner/member)
+- **wines**: Stores wine information (linked to cellars)
+- **user_wines**: Junction table for quantity tracking
+- **cellar_invites**: Pending invitations for new users
+
+> See [DATABASE_STRUCTURE.md](./DATABASE_STRUCTURE.md) for complete schema documentation.
 
 ## API Routes
 
+### Wine Management
+- `GET /api/wines?cellarId=<id>` - Fetch wines for a cellar
+- `POST /api/wines` - Add a new wine (with cellarId in body)
+- `PUT /api/wines?id=<id>` - Update wine details
+- `DELETE /api/wines?id=<id>` - Remove a wine from collection
+
+### Cellar Management
+- `GET /api/cellars` - List user's cellars
+- `POST /api/cellars` - Create new cellar
+- `PUT /api/cellars?id=<id>` - Update cellar
+- `DELETE /api/cellars?id=<id>` - Delete cellar
+
+### Cellar Sharing
+- `GET /api/cellars/members?cellarId=<id>` - List cellar members
+- `DELETE /api/cellars/members?cellarId=<id>&userId=<id>` - Remove member
+- `POST /api/cellars/invite` - Send invite
+- `PUT /api/cellars/invite` - Accept invite
+
+### AI Features
 - `POST /api/analyze` - Analyze wine label image with OpenAI Vision
 - `POST /api/pair` - Get wine pairing suggestions
-- `GET /api/wines` - Fetch user's wines
-- `POST /api/wines` - Add a new wine
-- `DELETE /api/wines` - Remove a wine from collection
 
 ## Future Enhancements
 
-- Stripe integration for premium features
-- Wine.com/Vivino API integration for richer metadata
-- Rating and tasting notes per wine
+- Move from web application to iOS
+- API integration for richer metadata
+- ~~Shared cellars~~ ✅ Implemented!
 - Offline caching for PWA experience
-- Social features (sharing collections)
+- Activity log per cellar
+- Push notifications for cellar changes
+- Transfer cellar ownership
 
 ## License
 
 MIT
+
 
 
 

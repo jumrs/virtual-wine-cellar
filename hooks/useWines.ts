@@ -1,6 +1,7 @@
 /**
  * Wine Data Hook
  * Centralized wine fetching with caching and optimized re-fetching
+ * Supports both legacy user-based and new cellar-based data access
  */
 
 import { useState, useCallback, useEffect, useRef } from "react";
@@ -16,6 +17,8 @@ interface UseWinesOptions {
   sortOnFetch?: boolean;
   /** Show toast on error (default: true) */
   showErrorToast?: boolean;
+  /** Cellar ID to fetch wines for (optional - uses legacy user_wines if not provided) */
+  cellarId?: string | null;
 }
 
 interface UseWinesReturn {
@@ -37,11 +40,18 @@ interface UseWinesReturn {
 
 /**
  * Cache for wine data to prevent redundant fetches.
- * IMPORTANT: Cache must be scoped per-user to avoid leaking data across account switches.
+ * IMPORTANT: Cache must be scoped per-user/cellar to avoid leaking data across account/cellar switches.
  */
-let wineCacheByUser: Record<string, Wine[] | undefined> = {};
-let lastFetchTimeByUser: Record<string, number | undefined> = {};
+let wineCache: Record<string, Wine[] | undefined> = {};
+let lastFetchTime: Record<string, number | undefined> = {};
 const CACHE_DURATION = 30000; // 30 seconds
+
+/**
+ * Generate cache key based on user and cellar
+ */
+function getCacheKey(userId: string, cellarId?: string | null): string {
+  return cellarId ? `${userId}:${cellarId}` : userId;
+}
 
 /**
  * Custom hook for managing wine data
@@ -52,6 +62,7 @@ export function useWines(options: UseWinesOptions = {}): UseWinesReturn {
     autoFetch = true,
     sortOnFetch = true,
     showErrorToast = true,
+    cellarId,
   } = options;
 
   // Start empty; we'll hydrate from the correct per-user cache after we know who is logged in.
@@ -60,6 +71,12 @@ export function useWines(options: UseWinesOptions = {}): UseWinesReturn {
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
   const mountedRef = useRef(true);
+  const cellarIdRef = useRef(cellarId);
+
+  // Update ref when cellarId changes
+  useEffect(() => {
+    cellarIdRef.current = cellarId;
+  }, [cellarId]);
 
   const fetchWines = useCallback(async (forceRefresh = false) => {
     setLoading(true);
@@ -77,11 +94,14 @@ export function useWines(options: UseWinesOptions = {}): UseWinesReturn {
         return;
       }
 
-      // Use per-user cache if available and fresh (unless force refresh)
+      const currentCellarId = cellarIdRef.current;
+      const cacheKey = getCacheKey(userId, currentCellarId);
+
+      // Use cache if available and fresh (unless force refresh)
       const now = Date.now();
-      const cachedWines = wineCacheByUser[userId];
-      const lastFetchTime = lastFetchTimeByUser[userId] ?? 0;
-      if (!forceRefresh && cachedWines && now - lastFetchTime < CACHE_DURATION) {
+      const cachedWines = wineCache[cacheKey];
+      const cachedTime = lastFetchTime[cacheKey] ?? 0;
+      if (!forceRefresh && cachedWines && now - cachedTime < CACHE_DURATION) {
         if (mountedRef.current) {
           setWines(cachedWines);
           setLoading(false);
@@ -89,7 +109,12 @@ export function useWines(options: UseWinesOptions = {}): UseWinesReturn {
         return;
       }
 
-      const response = await fetch("/api/wines", {
+      // Build URL with cellar ID if provided
+      const url = currentCellarId 
+        ? `/api/wines?cellarId=${currentCellarId}`
+        : "/api/wines";
+
+      const response = await fetch(url, {
         // Prevent browser/proxy caches from reusing a previous user's response.
         cache: "no-store",
         headers: {
@@ -105,8 +130,8 @@ export function useWines(options: UseWinesOptions = {}): UseWinesReturn {
       const processedWines = sortOnFetch ? sortWinesByCountryAndName(data) : data;
 
       // Update cache
-      wineCacheByUser[userId] = processedWines;
-      lastFetchTimeByUser[userId] = Date.now();
+      wineCache[cacheKey] = processedWines;
+      lastFetchTime[cacheKey] = Date.now();
 
       if (mountedRef.current) {
         setWines(processedWines);
@@ -151,18 +176,21 @@ export function useWines(options: UseWinesOptions = {}): UseWinesReturn {
         throw new Error("Failed to delete wine");
       }
 
+      const currentCellarId = cellarIdRef.current;
+      const cacheKey = getCacheKey(userId, currentCellarId);
+
       // Optimistic update
       setWines((prev) => {
         const updated = prev.filter((w) => w.id !== wineId);
         const next = sortWinesByCountryAndName(updated);
-        wineCacheByUser[userId] = next;
-        lastFetchTimeByUser[userId] = Date.now();
+        wineCache[cacheKey] = next;
+        lastFetchTime[cacheKey] = Date.now();
         return next;
       });
 
       toast({
         title: "Success",
-        description: "Wine removed from your cellar.",
+        description: "Wine removed from the cellar.",
       });
 
       return true;
@@ -199,14 +227,17 @@ export function useWines(options: UseWinesOptions = {}): UseWinesReturn {
         throw new Error("Failed to update quantity");
       }
 
+      const currentCellarId = cellarIdRef.current;
+      const cacheKey = getCacheKey(userId, currentCellarId);
+
       // Optimistic update
       setWines((prev) => {
         const updated = prev.map((w) =>
           w.id === wineId ? { ...w, quantity } : w
         );
         const next = sortWinesByCountryAndName(updated);
-        wineCacheByUser[userId] = next;
-        lastFetchTimeByUser[userId] = Date.now();
+        wineCache[cacheKey] = next;
+        lastFetchTime[cacheKey] = Date.now();
         return next;
       });
 
@@ -221,15 +252,16 @@ export function useWines(options: UseWinesOptions = {}): UseWinesReturn {
     }
   }, [toast]);
 
+  // Refetch when cellarId changes
   useEffect(() => {
     mountedRef.current = true;
     if (autoFetch) {
-      void fetchWines();
+      void fetchWines(true); // Force refresh on cellar change
     }
     return () => {
       mountedRef.current = false;
     };
-  }, [autoFetch, fetchWines]);
+  }, [autoFetch, cellarId]); // Include cellarId to refetch on change
 
   return {
     wines,
@@ -244,9 +276,21 @@ export function useWines(options: UseWinesOptions = {}): UseWinesReturn {
 
 /**
  * Invalidate the wine cache (call after mutations)
+ * @param cellarId - Optional cellar ID to invalidate specific cache, or all if not provided
  */
-export function invalidateWineCache(): void {
-  wineCacheByUser = {};
-  lastFetchTimeByUser = {};
+export function invalidateWineCache(cellarId?: string): void {
+  if (cellarId) {
+    // Invalidate specific cellar caches
+    Object.keys(wineCache).forEach((key) => {
+      if (key.includes(cellarId)) {
+        delete wineCache[key];
+        delete lastFetchTime[key];
+      }
+    });
+  } else {
+    // Invalidate all caches
+    wineCache = {};
+    lastFetchTime = {};
+  }
 }
 

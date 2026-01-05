@@ -22,6 +22,95 @@ export interface Wine {
   notes?: string;
   date_added?: string;
   quantity?: number;
+  /** The cellar this wine belongs to */
+  cellar_id?: string;
+}
+
+// ============================================
+// CELLAR TYPES
+// ============================================
+
+/** Wine cellar that can be shared among users */
+export interface Cellar {
+  id: string;
+  name: string;
+  owner_id: string;
+  created_at: string;
+  updated_at?: string;
+  /** Number of members (computed) */
+  member_count?: number;
+  /** Whether the cellar is shared with others */
+  is_shared?: boolean;
+}
+
+/** Membership role in a cellar */
+export type CellarRole = "owner" | "admin" | "member";
+
+/** A user's membership in a cellar */
+export interface CellarMember {
+  id: string;
+  cellar_id: string;
+  user_id: string;
+  role: CellarRole;
+  added_at: string;
+  /** Populated from profiles join */
+  user?: {
+    id: string;
+    email?: string;
+    name?: string;
+    username?: string;
+    avatar_url?: string;
+  };
+}
+
+/** Cellar with members populated */
+export interface CellarWithMembers extends Cellar {
+  members: CellarMember[];
+}
+
+/** Pending invite to join a cellar */
+export interface CellarInvite {
+  id: string;
+  cellar_id: string;
+  email: string;
+  invited_by: string;
+  token: string;
+  expires_at: string;
+  created_at: string;
+}
+
+/** Context state for cellar management */
+export interface CellarContextState {
+  /** All cellars the user has access to */
+  cellars: Cellar[];
+  /** Currently active cellar */
+  activeCellar: Cellar | null;
+  /** User's role in the active cellar */
+  userRole: CellarRole | null;
+  /** Whether user can edit (owner or admin) */
+  canEdit: boolean;
+  /** Whether user can delete wines (owner only) */
+  canDelete: boolean;
+  /** Loading state */
+  loading: boolean;
+  /** Error message */
+  error: string | null;
+  /** Switch to a different cellar */
+  setActiveCellar: (cellar: Cellar) => void;
+  /** Refresh cellars from server */
+  refreshCellars: () => Promise<void>;
+  /** Create a new cellar */
+  createCellar: (name: string) => Promise<Cellar | null>;
+  /** Delete a cellar (owner only) */
+  deleteCellar: (cellarId: string) => Promise<boolean>;
+  /** Rename a cellar (owner only) */
+  renameCellar: (cellarId: string, newName: string) => Promise<boolean>;
+  /** Invite user to cellar */
+  inviteUser: (cellarId: string, email: string) => Promise<boolean>;
+  /** Remove member from cellar */
+  removeMember: (cellarId: string, userId: string) => Promise<boolean>;
+  /** Leave a cellar (for non-owners) */
+  leaveCellar: (cellarId: string) => Promise<boolean>;
 }
 
 /** Wine with file for upload form */

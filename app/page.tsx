@@ -2,18 +2,23 @@
 
 import { useCallback, useMemo, useState, lazy, Suspense } from "react";
 import { useAuth } from "@/components/AuthProvider";
+import { useCellar } from "@/components/CellarProvider";
 import { WineCard } from "@/components/WineCard";
 import { Button } from "@/components/ui/button";
-import { LogIn, Wine as WineIcon, Camera } from "lucide-react";
+import { LogIn, Wine as WineIcon, Camera, Users } from "lucide-react";
 import Link from "next/link";
 import { ConfigCheck } from "@/components/ConfigCheck";
 import { WineFilters } from "@/components/WineFilters";
 import { BottomNav } from "@/components/BottomNav";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { EmptyState } from "@/components/ui/empty-state";
-import { useWines, invalidateWineCache } from "@/hooks";
+import { useWines, invalidateWineCache, useCellarRealtime } from "@/hooks";
 import { separateWinesByQuantity, calculateWineStats } from "@/lib/wineUtils";
-import type { Wine } from "@/types";
+import { CellarSwitcher } from "@/components/CellarSwitcher";
+import { ShareCellarDialog } from "@/components/ShareCellarDialog";
+import { PendingInvites } from "@/components/PendingInvites";
+import { UserProfileMenu } from "@/components/UserProfileMenu";
+import type { Wine, Cellar } from "@/types";
 
 // Lazy load EditWineDialog - only loaded when editing
 const EditWineDialog = lazy(() =>
@@ -22,12 +27,23 @@ const EditWineDialog = lazy(() =>
 
 export default function Home() {
   const { user, profile, loading } = useAuth();
+  const { activeCellar, loading: loadingCellar, canEdit, canDelete } = useCellar();
   const { wines, loading: loadingWines, fetchWines, deleteWine } = useWines({
-    autoFetch: !!user,
+    autoFetch: !!user && !!activeCellar,
+    cellarId: activeCellar?.id,
   });
   const [filteredWines, setFilteredWines] = useState<Wine[]>([]);
   const [editingWine, setEditingWine] = useState<Wine | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [cellarSettingsOpen, setCellarSettingsOpen] = useState(false);
+  const [settingsCellar, setSettingsCellar] = useState<Cellar | null>(null);
+
+  // Real-time subscriptions for cellar changes
+  useCellarRealtime({
+    cellarId: activeCellar?.id,
+    onWinesChange: fetchWines,
+    showNotifications: true,
+  });
 
   // Memoized wine separation
   const { active: activeWines, ranOut: ranOutWines } = useMemo(
@@ -35,11 +51,13 @@ export default function Home() {
     [wines]
   );
 
+  // Filter active wines based on filters
   const filteredActiveWines = useMemo(
     () => filteredWines.filter((w) => (w.quantity || 0) > 0),
     [filteredWines]
   );
 
+  // Filter ran out wines - they should respect filters but always be visible in their section
   const filteredRanOutWines = useMemo(
     () => filteredWines.filter((w) => (w.quantity || 0) === 0),
     [filteredWines]
@@ -72,14 +90,23 @@ export default function Home() {
     setFilteredWines(filtered);
   }, []);
 
-  // Display name computation
+  // Display name computation - use cellar name if available
   const displayName = useMemo(() => {
+    if (activeCellar?.name) {
+      return activeCellar.name;
+    }
     const name = profile?.name || profile?.username || user?.email?.split("@")[0] || "My";
     return name === "My" ? "My Cellar" : `${name}'s Cellar`;
-  }, [profile, user]);
+  }, [profile, user, activeCellar]);
+
+  // Handle cellar settings click
+  const handleCellarSettings = useCallback((cellar: Cellar) => {
+    setSettingsCellar(cellar);
+    setCellarSettingsOpen(true);
+  }, []);
 
   // Loading state
-  if (loading) {
+  if (loading || loadingCellar) {
     return <LoadingSpinner fullScreen message="Loading your cellar..." size="lg" />;
   }
 
@@ -109,22 +136,42 @@ export default function Home() {
 
       {/* Header */}
       <header className="relative z-10 sticky top-0 bg-background/80 backdrop-blur-xl border-b border-border/50">
-        <div className="container mx-auto px-4 py-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold font-serif">{displayName}</h1>
+        <div className="container mx-auto px-4 py-3 sm:py-4">
+          <div className="flex items-center justify-between gap-2 sm:gap-3">
+            <div className="flex-1 min-w-0 flex items-center gap-2 sm:gap-3 flex-wrap">
+              {/* Wine Icon */}
+              <WineIcon className="h-5 w-5 text-primary shrink-0" />
+              
+              {/* Cellar Name with Shared Icon */}
+              <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
+                <CellarSwitcher onSettingsClick={handleCellarSettings} />
+                
+                {/* Shared Icon - Red */}
+                {activeCellar?.is_shared && (
+                  <Users className="h-4 w-4 text-primary shrink-0" />
+                )}
+              </div>
+              
+              {/* Stats - Next to cellar name, wraps on very small screens */}
               {wines.length > 0 && (
-                <p className="text-sm text-muted-foreground">
-                  {stats.activeWines} {stats.activeWines === 1 ? "wine" : "wines"} •{" "}
-                  {stats.totalBottles} bottles
-                </p>
+                <div className="flex items-center gap-1 text-xs sm:text-sm text-muted-foreground shrink-0">
+                  <span className="whitespace-nowrap">
+                    {stats.activeWines} {stats.activeWines === 1 ? "wine" : "wines"} • {stats.totalBottles} bottles
+                  </span>
+                </div>
               )}
             </div>
+            
+            {/* User Profile Menu */}
+            <UserProfileMenu />
           </div>
         </div>
       </header>
 
       <main className="relative z-10 flex-1 container mx-auto px-4 py-6 page-container">
+        {/* Pending Invites */}
+        <PendingInvites onInviteAccepted={fetchWines} />
+
         {loadingWines ? (
           <LoadingSpinner message="Loading your wines..." />
         ) : wines.length === 0 ? (
@@ -153,17 +200,21 @@ export default function Home() {
                 onDelete={handleDelete}
                 onEdit={handleEdit}
                 onRefresh={fetchWines}
+                canEdit={canEdit}
+                canDelete={canDelete}
               />
             )}
 
-            {/* Ran Out Wines */}
-            {filteredRanOutWines.length > 0 && (
+            {/* Ran Out Wines - Show section if there are any ran out wines */}
+            {ranOutWines.length > 0 && (
               <WineSection
                 title="Ran Out"
                 wines={filteredRanOutWines}
                 onDelete={handleDelete}
                 onEdit={handleEdit}
                 onRefresh={fetchWines}
+                canEdit={canEdit}
+                canDelete={canDelete}
                 isRanOut
                 delay={200}
               />
@@ -195,8 +246,18 @@ export default function Home() {
             onOpenChange={setEditDialogOpen}
             onSave={handleSaveEdit}
             onImageUpdate={fetchWines}
+            canDelete={canDelete}
           />
         </Suspense>
+      )}
+
+      {/* Cellar Settings Dialog */}
+      {settingsCellar && (
+        <ShareCellarDialog
+          open={cellarSettingsOpen}
+          onOpenChange={setCellarSettingsOpen}
+          cellar={settingsCellar}
+        />
       )}
     </div>
   );
@@ -296,6 +357,8 @@ function WineSection({
   onDelete,
   onEdit,
   onRefresh,
+  canEdit = true,
+  canDelete = true,
   isRanOut = false,
   delay = 100,
 }: {
@@ -304,6 +367,8 @@ function WineSection({
   onDelete: (id: string) => void;
   onEdit: (wine: Wine) => void;
   onRefresh: () => void;
+  canEdit?: boolean;
+  canDelete?: boolean;
   isRanOut?: boolean;
   delay?: number;
 }) {
@@ -326,6 +391,8 @@ function WineSection({
             onEdit={onEdit}
             onImageUpdate={onRefresh}
             onQuantityUpdate={onRefresh}
+            canEdit={canEdit}
+            canDelete={canDelete}
             isRanOut={isRanOut}
           />
         ))}
