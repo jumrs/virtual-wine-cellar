@@ -174,7 +174,7 @@ virtual-wine-cellar/
 1. **Sign Up/In**: Create an account or sign in with your email
 2. **Add Wines**: Go to "Add Wine" and upload a photo of a wine label
 3. **View Collection**: See all your wines on the dashboard
-4. **Get Pairings**: Visit the Pairings page and describe your meal to get AI suggestions
+4. **Get Pairings**: Visit the AI Sommelier page and describe your meal to get wine suggestions from your cellar
 
 ## Deployment
 
@@ -225,8 +225,8 @@ The app will automatically build and deploy.
 
 ## Future Enhancements
 
-- Stripe integration for premium features
-- Wine.com/Vivino API integration for richer metadata
+- Move from web application to iOS
+- API integration for richer metadata
 - ~~Shared cellars~~ ✅ Implemented!
 - Offline caching for PWA experience
 - Activity log per cellar
