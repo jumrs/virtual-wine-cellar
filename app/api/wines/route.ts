@@ -67,78 +67,71 @@ export async function GET(request: NextRequest) {
         return errorResponse("Access denied to this cellar", 403);
       }
 
-      // Fetch wines for the cellar
-      const { data: wines, error } = await authenticatedSupabase
-        .from("wines")
-        .select(`
-          id,
-          name,
-          type,
-          grape,
-          grapes,
-          is_blend,
-          region,
-          country,
-          vintage,
-          score,
-          label_image_url,
-          notes,
-          cellar_id,
-          created_at
-        `)
-        .eq("cellar_id", cellarId)
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
-
-      // Get quantities from the cellar owner's user_wines
-      // The owner's quantity is the source of truth for the whole cellar
+      // Get the cellar owner first
       const { data: cellar } = await authenticatedSupabase
         .from("cellars")
         .select("owner_id")
         .eq("id", cellarId)
         .single();
-      
-      const wineIds = wines?.map((w: any) => w.id) || [];
-      let quantityMap: Record<string, { quantity: number; date_added: string }> = {};
-      
-      if (wineIds.length > 0 && cellar?.owner_id) {
-        // Get user_wines entries for the cellar owner
-        const { data: userWines } = await authenticatedSupabase
-          .from("user_wines")
-          .select("wine_id, quantity, date_added")
-          .in("wine_id", wineIds)
-          .eq("user_id", cellar.owner_id);
-        
-        if (userWines && userWines.length > 0) {
-          userWines.forEach((uw: any) => {
-            quantityMap[uw.wine_id] = {
-              // Use nullish coalescing (??) to preserve 0 as a valid quantity
-              quantity: uw.quantity ?? 1,
-              date_added: uw.date_added,
-            };
-          });
-        }
+
+      if (!cellar?.owner_id) {
+        return errorResponse("Cellar owner not found", 404);
       }
 
-      const formatted = wines?.map((w: any) => ({
-        id: w.id,
-        name: w.name,
-        type: w.type,
-        grape: w.grape,
-        grapes: w.grapes ?? [],
-        is_blend: w.is_blend ?? (w.grapes?.length > 1 || false),
-        region: w.region,
-        country: w.country,
-        vintage: w.vintage,
-        score: w.score ?? null,
-        label_image_url: w.label_image_url,
-        notes: w.notes,
-        cellar_id: w.cellar_id,
-        date_added: quantityMap[w.id]?.date_added || w.created_at,
-        // Use nullish coalescing (??) to preserve 0 as a valid quantity
-        quantity: quantityMap[w.id]?.quantity ?? 1,
-      })) || [];
+      // Fetch wines for the cellar by joining with user_wines
+      // This ensures we only get wines that are actually in the user's cellar
+      const { data: userWines, error } = await authenticatedSupabase
+        .from("user_wines")
+        .select(`
+          wine_id,
+          quantity,
+          date_added,
+          wines (
+            id,
+            name,
+            type,
+            grape,
+            grapes,
+            is_blend,
+            region,
+            country,
+            vintage,
+            score,
+            label_image_url,
+            notes,
+            cellar_id,
+            created_at
+          )
+        `)
+        .eq("user_id", cellar.owner_id)
+        .eq("wines.cellar_id", cellarId);
+
+      if (error) throw error;
+
+      // Filter out any null wines (shouldn't happen, but safety check)
+      const formatted = userWines
+        ?.filter((uw: any) => uw.wines)
+        .map((uw: any) => ({
+          id: uw.wines.id,
+          name: uw.wines.name,
+          type: uw.wines.type,
+          grape: uw.wines.grape,
+          grapes: uw.wines.grapes ?? [],
+          is_blend: uw.wines.is_blend ?? (uw.wines.grapes?.length > 1 || false),
+          region: uw.wines.region,
+          country: uw.wines.country,
+          vintage: uw.wines.vintage,
+          score: uw.wines.score ?? null,
+          label_image_url: uw.wines.label_image_url,
+          notes: uw.wines.notes,
+          cellar_id: uw.wines.cellar_id,
+          date_added: uw.date_added,
+          // Use nullish coalescing (??) to preserve 0 as a valid quantity
+          quantity: uw.quantity ?? 1,
+        }))
+        .sort((a: any, b: any) => 
+          new Date(b.date_added).getTime() - new Date(a.date_added).getTime()
+        ) || [];
 
       const response = successResponse(formatted);
       response.headers.set("Cache-Control", "no-store");
@@ -538,31 +531,59 @@ export async function DELETE(request: NextRequest) {
       return errorResponse("Wine not found", 404);
     }
 
-    // Get the cellar to check ownership
-    const { data: cellar, error: cellarError } = await authenticatedSupabase
-      .from("cellars")
-      .select("owner_id")
-      .eq("id", wine.cellar_id)
-      .single();
+    // Handle wines with and without cellar_id
+    if (wine.cellar_id) {
+      // Wine belongs to a cellar - check if user is the owner
+      const { data: cellar, error: cellarError } = await authenticatedSupabase
+        .from("cellars")
+        .select("owner_id")
+        .eq("id", wine.cellar_id)
+        .single();
 
-    if (cellarError || !cellar) {
-      return errorResponse("Cellar not found", 404);
-    }
+      if (cellarError || !cellar) {
+        return errorResponse("Cellar not found", 404);
+      }
 
-    // Only the cellar owner can delete wines
-    if (cellar.owner_id !== user.id) {
-      return errorResponse("Only the cellar owner can delete wines", 403);
-    }
+      // Only the cellar owner can delete wines
+      if (cellar.owner_id !== user.id) {
+        return errorResponse("Only the cellar owner can delete wines", 403);
+      }
 
-    // Delete from user_wines (owner's record)
-    const { error } = await authenticatedSupabase
-      .from("user_wines")
-      .delete()
-      .eq("user_id", cellar.owner_id)
-      .eq("wine_id", wineId);
+      // Delete from user_wines (owner's record)
+      const { error } = await authenticatedSupabase
+        .from("user_wines")
+        .delete()
+        .eq("user_id", cellar.owner_id)
+        .eq("wine_id", wineId);
 
-    if (error) {
-      throw error;
+      if (error) {
+        logApiError("Delete wine from cellar", error);
+        throw error;
+      }
+    } else {
+      // Legacy wine without cellar - check if user owns it via user_wines
+      const { data: userWine, error: userWineError } = await authenticatedSupabase
+        .from("user_wines")
+        .select("user_id")
+        .eq("wine_id", wineId)
+        .eq("user_id", user.id)
+        .single();
+
+      if (userWineError || !userWine) {
+        return errorResponse("You don't have permission to delete this wine", 403);
+      }
+
+      // Delete from user_wines (user's record)
+      const { error } = await authenticatedSupabase
+        .from("user_wines")
+        .delete()
+        .eq("user_id", user.id)
+        .eq("wine_id", wineId);
+
+      if (error) {
+        logApiError("Delete legacy wine", error);
+        throw error;
+      }
     }
 
     return successResponse({ success: true });
