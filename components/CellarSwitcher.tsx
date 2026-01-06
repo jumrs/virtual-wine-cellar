@@ -28,6 +28,7 @@ import {
   Check,
   Loader2,
   Settings,
+  Star,
 } from "lucide-react";
 import { useCellar } from "@/components/CellarProvider";
 import { cn } from "@/lib/utils";
@@ -45,6 +46,8 @@ export function CellarSwitcher({ className, onSettingsClick }: CellarSwitcherPro
     loading,
     setActiveCellar,
     createCellar,
+    mainCellarId,
+    setMainCellar,
   } = useCellar();
 
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -105,14 +108,23 @@ export function CellarSwitcher({ className, onSettingsClick }: CellarSwitcherPro
           {cellars.map((cellar) => (
             <DropdownMenuItem
               key={cellar.id}
-              onClick={() => setActiveCellar(cellar)}
+              onClick={(e) => {
+                // Only switch cellar if clicking on the main content, not the star button
+                if ((e.target as HTMLElement).closest('button')) {
+                  return;
+                }
+                setActiveCellar(cellar);
+              }}
               className="flex items-center gap-2 cursor-pointer"
             >
-              <div className="flex-1 truncate">
+              <div className="flex-1 truncate" onClick={() => setActiveCellar(cellar)}>
                 <div className="flex items-center gap-2">
                   <span className="truncate">{cellar.name}</span>
                   {cellar.is_shared && (
                     <Users className="h-3 w-3 text-muted-foreground shrink-0" />
+                  )}
+                  {cellar.id === mainCellarId && (
+                    <Star className="h-3 w-3 text-yellow-500 fill-yellow-500 shrink-0" />
                   )}
                 </div>
                 {cellar.member_count && cellar.member_count > 1 && (
@@ -121,9 +133,34 @@ export function CellarSwitcher({ className, onSettingsClick }: CellarSwitcherPro
                   </span>
                 )}
               </div>
-              {cellar.id === activeCellar.id && (
-                <Check className="h-4 w-4 text-primary shrink-0" />
-              )}
+              <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                {cellar.id === mainCellarId ? (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setMainCellar(null);
+                    }}
+                    className="p-1 hover:bg-accent rounded"
+                    title="Remove as main cellar"
+                  >
+                    <Star className="h-3 w-3 text-yellow-500 fill-yellow-500" />
+                  </button>
+                ) : (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setMainCellar(cellar.id);
+                    }}
+                    className="p-1 hover:bg-accent rounded"
+                    title="Set as main cellar"
+                  >
+                    <Star className="h-3 w-3 text-muted-foreground hover:text-yellow-500" />
+                  </button>
+                )}
+                {cellar.id === activeCellar.id && (
+                  <Check className="h-4 w-4 text-primary shrink-0" />
+                )}
+              </div>
             </DropdownMenuItem>
           ))}
           

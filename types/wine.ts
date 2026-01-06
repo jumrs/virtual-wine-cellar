@@ -87,6 +87,8 @@ export interface CellarContextState {
   activeCellar: Cellar | null;
   /** User's role in the active cellar */
   userRole: CellarRole | null;
+  /** ID of the main cellar (displays on login) */
+  mainCellarId: string | null;
   /** Whether user can edit (owner or admin) */
   canEdit: boolean;
   /** Whether user can delete wines (owner only) */
@@ -111,6 +113,8 @@ export interface CellarContextState {
   removeMember: (cellarId: string, userId: string) => Promise<boolean>;
   /** Leave a cellar (for non-owners) */
   leaveCellar: (cellarId: string) => Promise<boolean>;
+  /** Set the main cellar (the one that displays on login) */
+  setMainCellar: (cellarId: string | null) => Promise<boolean>;
 }
 
 /** Wine with file for upload form */
@@ -146,6 +150,7 @@ export interface UserProfile {
   username: string | null;
   name: string | null;
   avatar_url: string | null;
+  main_cellar_id?: string | null;
 }
 
 /** Pairing chat message */

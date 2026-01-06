@@ -49,7 +49,7 @@ export async function GET(request: NextRequest) {
     // Get user profile - select only necessary fields
     const { data: profile, error: profileError } = await supabase
       .from("user_profiles")
-      .select("username, name, avatar_url")
+      .select("username, name, avatar_url, main_cellar_id")
       .eq("id", user.id)
       .single();
 
@@ -65,6 +65,7 @@ export async function GET(request: NextRequest) {
       username: profile?.username || null,
       name: profile?.name || null,
       avatar_url: profile?.avatar_url || null,
+      main_cellar_id: profile?.main_cellar_id || null,
     });
   } catch (error: unknown) {
     if (process.env.NODE_ENV === "development") {
@@ -127,6 +128,9 @@ export async function PUT(request: NextRequest) {
       ? sanitizeTextInput(body.name) || null
       : undefined;
     const avatar_url = body.avatar_url; // URL validation is handled separately
+    const main_cellar_id = body.main_cellar_id !== undefined
+      ? body.main_cellar_id || null
+      : undefined;
 
     // Validate username if provided
     if (username !== undefined && username !== null) {
@@ -171,10 +175,37 @@ export async function PUT(request: NextRequest) {
       );
     }
 
+    // Validate main_cellar_id if provided
+    if (main_cellar_id !== undefined && main_cellar_id !== null) {
+      // Verify it's a valid UUID format
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (!uuidRegex.test(main_cellar_id)) {
+        return NextResponse.json(
+          { error: "Invalid cellar ID format" },
+          { status: 400 }
+        );
+      }
+
+      // Verify user is a member of this cellar
+      const { data: membership } = await supabase
+        .from("cellar_members")
+        .select("cellar_id")
+        .eq("cellar_id", main_cellar_id)
+        .eq("user_id", user.id)
+        .single();
+
+      if (!membership) {
+        return NextResponse.json(
+          { error: "You must be a member of the cellar to set it as main" },
+          { status: 403 }
+        );
+      }
+    }
+
     // Get existing profile to preserve fields not being updated
     const { data: existingProfile } = await supabase
       .from("user_profiles")
-      .select("username, name, avatar_url")
+      .select("username, name, avatar_url, main_cellar_id")
       .eq("id", user.id)
       .single();
 
@@ -203,6 +234,12 @@ export async function PUT(request: NextRequest) {
       updateData.avatar_url = existingProfile.avatar_url;
     }
 
+    if (main_cellar_id !== undefined) {
+      updateData.main_cellar_id = main_cellar_id;
+    } else if (existingProfile?.main_cellar_id !== undefined) {
+      updateData.main_cellar_id = existingProfile.main_cellar_id;
+    }
+
     // Update or insert profile
     const { data: profile, error: profileError } = await supabase
       .from("user_profiles")
@@ -226,6 +263,7 @@ export async function PUT(request: NextRequest) {
       username: profile.username,
       name: profile.name,
       avatar_url: profile.avatar_url,
+      main_cellar_id: profile.main_cellar_id || null,
     });
   } catch (error: unknown) {
     if (process.env.NODE_ENV === "development") {
