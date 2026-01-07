@@ -553,13 +553,6 @@ export function UploadForm({ cellarId }: UploadFormProps) {
                       className="object-cover"
                       unoptimized={!!wine.extractedData?.standard_image_url}
                     />
-                    {/* Show small badge if using standardized image */}
-                    {wine.extractedData?.standard_image_url && (
-                      <div className="absolute top-1 right-1 bg-primary/90 text-white text-[10px] px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
-                        <Sparkles className="w-2.5 h-2.5" />
-                        <span>AI</span>
-                      </div>
-                    )}
                     {wine.saved && (
                       <div className="absolute inset-0 bg-green-500/20 flex items-center justify-center">
                         <div className="w-10 h-10 rounded-full bg-green-500 flex items-center justify-center">
