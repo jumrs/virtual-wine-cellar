@@ -306,13 +306,13 @@ The user provides a photo of a wine label. Your task is to:
 2. Identify the wine as precisely as possible (name, vintage, producer, region)
 3. Extract all visible information from the label
 4. For any field that is missing or unclear, use your knowledge to fill in accurate information
-5. Provide search terms that would help find a high-quality standardized bottle image of this wine
+5. Provide search terms that would help find a high-quality standardized bottle image of this wine. Prioritize images with white/clear backgrounds.
 
 IMPORTANT GUIDELINES:
 - Prioritize information visible on the label
 - Use your wine knowledge to verify and enrich the data
 - Do NOT reference or use data from Vivino, Wine.com, or other proprietary wine platforms
-- For search_terms, provide specific terms that would find a high-quality standardized bottle photo
+- For search_terms, provide specific terms that would find a high-quality standardized bottle photo. Prioritize images with white/clear backgrounds.
 - If the wine cannot be identified with reasonable confidence, still extract what you can see
 
 Return ONLY valid JSON with this exact structure:
@@ -327,7 +327,7 @@ Return ONLY valid JSON with this exact structure:
   "country": "Country of origin",
   "vintage": year as number or null if non-vintage,
   "notes": "Include any tasting notes, flavor profiles, producer information, cuvée details, classification, label details, and any other relevant additional information found from reputable sources. Combine all this information into a comprehensive notes field.",
-  "search_terms": "optimized search query for finding high-quality, standardized, professional bottle image"
+  "search_terms": "optimized search query for finding high-quality, standardized, professional bottle image. Prioritize images with white/clear backgrounds."
 }
 
 Rules:
