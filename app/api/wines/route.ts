@@ -98,6 +98,7 @@ export async function GET(request: NextRequest) {
             vintage,
             score,
             label_image_url,
+            user_uploaded_label_url,
             notes,
             cellar_id,
             created_at
@@ -123,6 +124,7 @@ export async function GET(request: NextRequest) {
           vintage: uw.wines.vintage,
           score: uw.wines.score ?? null,
           label_image_url: uw.wines.label_image_url,
+          user_uploaded_label_url: uw.wines.user_uploaded_label_url,
           notes: uw.wines.notes,
           cellar_id: uw.wines.cellar_id,
           date_added: uw.date_added,
@@ -159,6 +161,7 @@ export async function GET(request: NextRequest) {
           vintage,
           score,
           label_image_url,
+          user_uploaded_label_url,
           notes,
           cellar_id
         )
@@ -177,7 +180,7 @@ export async function GET(request: NextRequest) {
             date_added,
             wines (
               id, name, type, grape, grapes, is_blend,
-              region, country, vintage, score, label_image_url, notes, cellar_id
+              region, country, vintage, score, label_image_url, user_uploaded_label_url, notes, cellar_id
             )
           `)
           .eq("user_id", user.id)
@@ -290,16 +293,21 @@ export async function POST(request: NextRequest) {
       cellarOwnerId = cellar?.owner_id || null;
     }
 
-    // Upload image if provided
-    let imageUrl: string | undefined;
+    // Upload user's scanned label image if provided
+    let userUploadedLabelUrl: string | undefined;
     if (file && file.size > 0) {
       // Validate file
       const fileValidation = validateImageFile(file, 10);
       if (!fileValidation.valid) {
         return errorResponse(fileValidation.error || "Invalid image file", 400);
       }
-      imageUrl = await uploadWineImage(authenticatedSupabase, user.id, file);
+      userUploadedLabelUrl = await uploadWineImage(authenticatedSupabase, user.id, file);
     }
+
+    // Get standardized image URL from wine data (set by scanWine endpoint)
+    // Fall back to user uploaded image if no standardized image is available
+    const standardImageUrl = rawWineData.standard_image_url || rawWineData.label_image_url || null;
+    const finalLabelImageUrl = standardImageUrl || userUploadedLabelUrl || null;
 
     // Process grapes array
     const grapes = normalizeGrapes(wineData.grapes as string[] | undefined, wineData.grape as string | undefined);
@@ -318,7 +326,8 @@ export async function POST(request: NextRequest) {
         country: wineData.country || null,
         vintage: wineData.vintage || null,
         score: wineData.score ?? null,
-        label_image_url: imageUrl || null,
+        label_image_url: finalLabelImageUrl,
+        user_uploaded_label_url: userUploadedLabelUrl || null,
         notes: wineData.notes || null,
         cellar_id: cellarId || null,
       })
@@ -651,6 +660,7 @@ function formatWineResponse(wines: any[] | null, hasQuantity: boolean) {
       vintage: uw.wines.vintage,
       score: uw.wines.score ?? null,
       label_image_url: uw.wines.label_image_url,
+      user_uploaded_label_url: uw.wines.user_uploaded_label_url,
       notes: uw.wines.notes,
       cellar_id: uw.wines.cellar_id,
       date_added: uw.date_added,

@@ -18,7 +18,10 @@ export interface Wine {
   is_blend?: boolean;
   vintage?: number;
   score?: number | null;
+  /** URL to the standardized bottle/product image (from AI enrichment or manual selection) */
   label_image_url?: string;
+  /** URL to the user-uploaded label photo (from scan) */
+  user_uploaded_label_url?: string;
   notes?: string;
   date_added?: string;
   quantity?: number;
@@ -132,6 +135,7 @@ export interface WineWithFile {
 /** Data extracted from wine label analysis */
 export interface ExtractedWineData {
   name: string;
+  producer?: string;
   type?: string;
   /** @deprecated Use grapes array instead */
   grape?: string;
@@ -141,6 +145,10 @@ export interface ExtractedWineData {
   country?: string;
   vintage?: number;
   notes?: string;
+  /** Standardized bottle image URL from AI enrichment */
+  standard_image_url?: string | null;
+  /** AI confidence score (0.0 to 1.0) */
+  confidence?: number;
 }
 
 /** User profile data */

@@ -13,6 +13,7 @@ import { DuplicateWineDialog } from "@/components/DuplicateWineDialog";
 
 interface ExtractedWineData {
   name: string;
+  producer?: string;
   type?: string;
   grape?: string; // Legacy field
   grapes?: string[]; // New array field
@@ -21,6 +22,10 @@ interface ExtractedWineData {
   country?: string;
   vintage?: number;
   notes?: string;
+  /** Standardized bottle image URL from AI enrichment */
+  standard_image_url?: string | null;
+  /** AI confidence score (0.0 to 1.0) */
+  confidence?: number;
 }
 
 interface WineWithFile {
@@ -131,7 +136,8 @@ export function UploadForm({ cellarId }: UploadFormProps) {
       const formData = new FormData();
       formData.append("image", wine.file);
 
-      const response = await fetch("/api/analyze", {
+      // Use the enhanced scanWine endpoint for AI enrichment with standardized images
+      const response = await fetch("/api/scanWine", {
         method: "POST",
         headers: {
           Authorization: `Bearer ${accessToken}`,
@@ -273,7 +279,9 @@ export function UploadForm({ cellarId }: UploadFormProps) {
       const formData = new FormData();
       formData.append("image", wine.file);
       formData.append("wineData", JSON.stringify({ 
-        ...wine.extractedData, 
+        ...wine.extractedData,
+        // Pass the standardized image URL to be saved as the primary image
+        standard_image_url: wine.extractedData?.standard_image_url || null,
         quantity: wine.quantity,
         cellarId: cellarId || undefined,
       }));
@@ -536,14 +544,22 @@ export function UploadForm({ cellarId }: UploadFormProps) {
                 )}
               >
                 <div className="flex gap-4">
-                  {/* Image Preview */}
+                  {/* Image Preview - Show standardized image if available, otherwise user's photo */}
                   <div className="relative w-24 h-32 rounded-xl overflow-hidden flex-shrink-0 bg-muted">
                     <Image
-                      src={wine.preview}
-                      alt={`Wine label ${index + 1}`}
+                      src={wine.extractedData?.standard_image_url || wine.preview}
+                      alt={`Wine ${index + 1}`}
                       fill
                       className="object-cover"
+                      unoptimized={!!wine.extractedData?.standard_image_url}
                     />
+                    {/* Show small badge if using standardized image */}
+                    {wine.extractedData?.standard_image_url && (
+                      <div className="absolute top-1 right-1 bg-primary/90 text-white text-[10px] px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
+                        <Sparkles className="w-2.5 h-2.5" />
+                        <span>AI</span>
+                      </div>
+                    )}
                     {wine.saved && (
                       <div className="absolute inset-0 bg-green-500/20 flex items-center justify-center">
                         <div className="w-10 h-10 rounded-full bg-green-500 flex items-center justify-center">
