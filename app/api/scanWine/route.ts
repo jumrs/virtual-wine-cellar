@@ -307,7 +307,6 @@ The user provides a photo of a wine label. Your task is to:
 3. Extract all visible information from the label
 4. For any field that is missing or unclear, use your knowledge to fill in accurate information
 5. Provide search terms that would help find a standardized bottle image of this wine
-6. Assign a confidence score (0.0 to 1.0) based on how certain you are of the identification
 
 IMPORTANT GUIDELINES:
 - Prioritize information visible on the label
@@ -321,14 +320,13 @@ Return ONLY valid JSON with this exact structure:
 {
   "name": "Full wine name as it should appear",
   "producer": "Winery/producer name",
-  "type": "red|white|rosé|sparkling|dessert|fortified|orange",
+  "type": "Red|White|Rosé|Sparkling|Dessert|Fortified|Orange",
   "grapes": ["Array", "of", "grape", "varieties"],
   "is_blend": true or false,
   "region": "Wine region/appellation",
   "country": "Country of origin",
   "vintage": year as number or null if non-vintage,
   "notes": "Detailed tasting notes, producer info, classification, and any other relevant details",
-  "confidence": 0.0 to 1.0,
   "search_terms": "optimized search query for finding official bottle image"
 }
 
@@ -336,7 +334,6 @@ Rules:
 - Do NOT include explanations outside the JSON
 - "grapes" MUST be an array, even for single varietals
 - Set is_blend to true if grapes.length > 1
-- confidence should reflect how certain you are (1.0 = very certain, 0.5 = moderate, <0.3 = guessing)
 - search_terms should include producer, wine name, vintage, and "bottle" or "wine bottle"`;
 
     // Call OpenAI Vision API
