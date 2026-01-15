@@ -30,11 +30,19 @@ interface RatingAnalyticsModalProps {
 export function RatingAnalyticsModal({ open, onOpenChange, wines }: RatingAnalyticsModalProps) {
   const [selectedRange, setSelectedRange] = useState<string | null>(null);
 
+  // Filter out ran out wines (quantity must be > 0)
+  const activeWines = useMemo(() => {
+    return wines.filter((w) => {
+      const qty = w.quantity ?? 0;
+      return qty > 0;
+    });
+  }, [wines]);
+
   // Calculate detailed rating breakdown for each range
   const getRatingBreakdown = (range: string) => {
     const breakdown: Record<string, number> = {};
     
-    wines.forEach((wine) => {
+    activeWines.forEach((wine) => {
       const score = wine.score;
       if (score === null || score === undefined) return;
       
@@ -70,7 +78,7 @@ export function RatingAnalyticsModal({ open, onOpenChange, wines }: RatingAnalyt
       "5.0": 0,
     };
     
-    wines.forEach((wine) => {
+    activeWines.forEach((wine) => {
       const score = wine.score;
       if (score === null || score === undefined) return;
       
@@ -86,11 +94,11 @@ export function RatingAnalyticsModal({ open, onOpenChange, wines }: RatingAnalyt
     return Object.entries(ratingBuckets)
       .map(([range, count]) => ({ range, count }))
       .reverse(); // Show 5.0 at top
-  }, [wines]);
+  }, [activeWines]);
 
   // Stats
   const stats = useMemo(() => {
-    const ratedWines = wines.filter(w => w.score !== null && w.score !== undefined);
+    const ratedWines = activeWines.filter(w => w.score !== null && w.score !== undefined);
     
     if (ratedWines.length === 0) {
       return {
@@ -114,7 +122,7 @@ export function RatingAnalyticsModal({ open, onOpenChange, wines }: RatingAnalyt
       mostCommonRange: mostCommonRange?.range,
       ratedCount: ratedWines.length,
     };
-  }, [wines, ratingData]);
+  }, [activeWines, ratingData]);
 
   // Get color based on rating range
   const getBarColor = (range: string) => {
@@ -172,6 +180,7 @@ export function RatingAnalyticsModal({ open, onOpenChange, wines }: RatingAnalyt
                     alt={stats.topRated.name}
                     fill
                     className="object-cover"
+                    unoptimized={stats.topRated.label_image_url?.includes('costcowineblog.com')}
                   />
                 </div>
               ) : (
@@ -208,7 +217,7 @@ export function RatingAnalyticsModal({ open, onOpenChange, wines }: RatingAnalyt
             <p className="text-xs text-muted-foreground">Rated Wines</p>
           </div>
           <div className="bg-muted/20 rounded-xl p-3 text-center">
-            <p className="text-2xl font-bold text-primary">{wines.length - stats.ratedCount}</p>
+            <p className="text-2xl font-bold text-primary">{activeWines.length - stats.ratedCount}</p>
             <p className="text-xs text-muted-foreground">Unrated</p>
           </div>
         </div>
@@ -221,7 +230,7 @@ export function RatingAnalyticsModal({ open, onOpenChange, wines }: RatingAnalyt
               Your Top Rated Wines
             </h3>
             <div className="space-y-1.5">
-              {wines
+              {activeWines
                 .filter(w => w.score !== null && w.score !== undefined)
                 .sort((a, b) => (b.score || 0) - (a.score || 0))
                 .slice(0, 5)
