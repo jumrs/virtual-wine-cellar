@@ -78,8 +78,17 @@ export default function ProfilePage() {
     }
   }, [profile, editing]);
 
-  // Calculate stats
-  const stats = useMemo(() => calculateWineStats(wines), [wines]);
+  // Filter out ran out wines for analytics (quantity must be > 0)
+  // Note: API may return quantity=1 for null values, so we explicitly check for > 0
+  const activeWines = useMemo(() => {
+    return wines.filter((w) => {
+      const qty = w.quantity ?? 0;
+      return qty > 0;
+    });
+  }, [wines]);
+
+  // Calculate stats using only active wines (excludes ran out wines)
+  const stats = useMemo(() => calculateWineStats(activeWines), [activeWines]);
 
   const displayName = useMemo(
     () => getDisplayName(profile, user),
@@ -270,17 +279,19 @@ export default function ProfilePage() {
                   <User className="w-10 h-10 text-primary" />
                 </div>
               )}
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                disabled={uploadingAvatar}
-                className="absolute bottom-0 right-0 w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center shadow-lg hover:bg-primary/90 transition-colors"
-              >
-                {uploadingAvatar ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Camera className="w-4 h-4" />
-                )}
-              </button>
+              {editing && (
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploadingAvatar}
+                  className="absolute bottom-0 right-0 w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center shadow-lg hover:bg-primary/90 transition-colors"
+                >
+                  {uploadingAvatar ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Camera className="w-4 h-4" />
+                  )}
+                </button>
+              )}
               <input
                 ref={fileInputRef}
                 type="file"
@@ -426,28 +437,28 @@ export default function ProfilePage() {
           <WinesAnalyticsModal
             open={winesModalOpen}
             onOpenChange={setWinesModalOpen}
-            wines={wines}
+            wines={activeWines}
           />
         )}
         {bottlesModalOpen && (
           <BottlesAnalyticsModal
             open={bottlesModalOpen}
             onOpenChange={setBottlesModalOpen}
-            wines={wines}
+            wines={activeWines}
           />
         )}
         {ratingModalOpen && (
           <RatingAnalyticsModal
             open={ratingModalOpen}
             onOpenChange={setRatingModalOpen}
-            wines={wines}
+            wines={activeWines}
           />
         )}
         {countriesModalOpen && (
           <CountriesAnalyticsModal
             open={countriesModalOpen}
             onOpenChange={setCountriesModalOpen}
-            wines={wines}
+            wines={activeWines}
           />
         )}
       </Suspense>

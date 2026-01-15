@@ -66,7 +66,7 @@ export function RatingAnalyticsModal({ open, onOpenChange, wines }: RatingAnalyt
       .sort((a, b) => b.rating - a.rating);
   };
 
-  // Calculate rating distribution
+  // Calculation of rating distribution
   const ratingData = useMemo(() => {
     const ratingBuckets: Record<string, number> = {
       "1.0-1.9": 0,
