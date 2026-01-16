@@ -313,7 +313,68 @@ export async function POST(request: NextRequest) {
     const grapes = normalizeGrapes(wineData.grapes as string[] | undefined, wineData.grape as string | undefined);
     const isBlend = grapes.length > 1;
 
-    // Insert wine with cellar_id if provided
+    // Calculate quantity early as it's needed for both paths
+    const rawQuantity = wineData.quantity;
+    const quantityNum = typeof rawQuantity === "number" ? rawQuantity : 
+                        (typeof rawQuantity === "string" ? parseInt(rawQuantity, 10) : 1);
+    const quantity = Math.max(1, isNaN(quantityNum) ? 1 : quantityNum);
+    const ownerIdForWine = cellarOwnerId || user.id;
+
+    // Check for existing matching wine in global catalog
+    // This matches the mobile app's add_user_wine RPC function behavior
+    const matchingWine = await findMatchingWine(
+      authenticatedSupabase,
+      wineData.name as string,
+      wineData.vintage as number | undefined,
+      wineData.region as string | undefined,
+      wineData.country as string | undefined
+    );
+
+    if (matchingWine) {
+      // Reuse existing wine - just create/update user_wines link
+      // First check if user already has this wine
+      const { data: existingLink } = await authenticatedSupabase
+        .from("user_wines")
+        .select("id, quantity")
+        .eq("user_id", ownerIdForWine)
+        .eq("wine_id", matchingWine.id)
+        .single();
+
+      if (existingLink) {
+        // Update quantity (add to existing)
+        const { error: updateError } = await authenticatedSupabase
+          .from("user_wines")
+          .update({ quantity: existingLink.quantity + quantity })
+          .eq("id", existingLink.id);
+
+        if (updateError) {
+          logApiError("Update user_wines quantity", updateError);
+          return errorResponse(`Failed to update wine quantity: ${updateError.message}`, 500);
+        }
+      } else {
+        // Create new link
+        const { error: linkError } = await authenticatedSupabase
+          .from("user_wines")
+          .insert({
+            user_id: ownerIdForWine,
+            wine_id: matchingWine.id,
+            quantity,
+          });
+
+        if (linkError) {
+          logApiError("Link existing wine to user", linkError);
+          return errorResponse(`Failed to link wine: ${linkError.message}`, 500);
+        }
+      }
+
+      return successResponse({ 
+        success: true, 
+        wine: { ...matchingWine, quantity: existingLink ? existingLink.quantity + quantity : quantity },
+        reused: true // Flag to indicate wine was reused from catalog
+      });
+    }
+
+    // No match found - create new wine entry
     const { data: wine, error: wineError } = await authenticatedSupabase
       .from("wines")
       .insert({
@@ -341,11 +402,6 @@ export async function POST(request: NextRequest) {
 
     // Link wine to cellar owner via user_wines (for quantity tracking)
     // If adding to a shared cellar, use the cellar owner's ID; otherwise use current user
-    const rawQuantity = wineData.quantity;
-    const quantityNum = typeof rawQuantity === "number" ? rawQuantity : 
-                        (typeof rawQuantity === "string" ? parseInt(rawQuantity, 10) : 1);
-    const quantity = Math.max(1, isNaN(quantityNum) ? 1 : quantityNum);
-    const ownerIdForWine = cellarOwnerId || user.id;
     const { error: linkError } = await authenticatedSupabase
       .from("user_wines")
       .insert({
@@ -603,6 +659,81 @@ export async function DELETE(request: NextRequest) {
 }
 
 // ============ Helper Functions ============
+
+/**
+ * Find a matching wine in the global wines catalog
+ * Uses the same logic as the mobile app's add_user_wine RPC function:
+ * 1. First tries exact name match with matching vintage/region/country
+ * 2. If no exact match, tries fuzzy matching with 70% similarity threshold
+ */
+async function findMatchingWine(
+  supabase: ReturnType<typeof import("@/lib/supabaseServer").createAuthenticatedClient>,
+  name: string,
+  vintage?: number | null,
+  region?: string | null,
+  country?: string | null
+): Promise<{
+  id: string;
+  name: string;
+  type?: string;
+  grape?: string;
+  grapes?: string[];
+  is_blend?: boolean;
+  region?: string;
+  country?: string;
+  vintage?: number;
+  score?: number | null;
+  label_image_url?: string;
+  notes?: string;
+} | null> {
+  const normalizedName = name.toLowerCase().trim();
+
+  // Query wines table for potential matches (fuzzy search on name)
+  const { data: wines, error } = await supabase
+    .from("wines")
+    .select("id, name, type, grape, grapes, is_blend, region, country, vintage, score, label_image_url, notes");
+
+  if (error || !wines || wines.length === 0) {
+    return null;
+  }
+
+  // First pass: exact name match with matching attributes
+  for (const wine of wines) {
+    const existingName = (wine.name || "").toLowerCase().trim();
+    if (existingName !== normalizedName) continue;
+
+    // If both have vintages, they must match exactly
+    if (vintage && wine.vintage && vintage !== wine.vintage) continue;
+    // If both have regions, they should match (case-insensitive)
+    if (region && wine.region && region.toLowerCase().trim() !== wine.region.toLowerCase().trim()) continue;
+    // If both have countries, they should match (case-insensitive)
+    if (country && wine.country && country.toLowerCase().trim() !== wine.country.toLowerCase().trim()) continue;
+
+    return wine;
+  }
+
+  // Second pass: fuzzy name match (70% similarity)
+  for (const wine of wines) {
+    const existingName = (wine.name || "").toLowerCase().trim();
+
+    // Check contains match
+    const containsMatch = existingName.includes(normalizedName) || normalizedName.includes(existingName);
+    if (!containsMatch) continue;
+
+    // Calculate similarity (shorter name length / longer name length)
+    const longer = existingName.length > normalizedName.length ? existingName : normalizedName;
+    const shorter = existingName.length > normalizedName.length ? normalizedName : existingName;
+    const similarity = shorter.length / longer.length;
+    if (similarity < 0.7) continue;
+
+    // If both have vintages, they must match
+    if (vintage && wine.vintage && vintage !== wine.vintage) continue;
+
+    return wine;
+  }
+
+  return null;
+}
 
 /**
  * Filter wines to only include those from cellars where user is owner (not admin)
