@@ -473,6 +473,55 @@
   [data-sonner-toast] {
     @apply rounded-2xl;
   }
+
+  /* Sommelier chat styling */
+  .sommelier-message {
+    position: relative;
+  }
+
+  .sommelier-message::before {
+    content: '';
+    position: absolute;
+    left: -8px;
+    top: 12px;
+    width: 0;
+    height: 0;
+    border-style: solid;
+    border-width: 8px 8px 8px 0;
+    border-color: transparent hsl(var(--card)) transparent transparent;
+  }
+
+  .sommelier-typing {
+    display: inline-flex;
+    gap: 4px;
+  }
+
+  .sommelier-typing span {
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background-color: hsl(var(--primary));
+    animation: typing 1.4s infinite;
+  }
+
+  .sommelier-typing span:nth-child(2) {
+    animation-delay: 0.2s;
+  }
+
+  .sommelier-typing span:nth-child(3) {
+    animation-delay: 0.4s;
+  }
+
+  @keyframes typing {
+    0%, 60%, 100% {
+      transform: translateY(0);
+      opacity: 0.7;
+    }
+    30% {
+      transform: translateY(-8px);
+      opacity: 1;
+    }
+  }
 }
 
 /* Custom scrollbar */
