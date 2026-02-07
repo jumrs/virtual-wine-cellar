@@ -343,7 +343,8 @@
   
   /* Wine image container */
   .wine-image-container {
-    @apply relative bg-gradient-to-b from-muted/50 to-transparent rounded-t-2xl overflow-hidden;
+    @apply relative rounded-t-2xl overflow-hidden;
+    background-color: #ffffff;
   }
   
   /* Elegant input */
