@@ -79,7 +79,9 @@ export async function GET(request: NextRequest) {
       }
 
       // Fetch wines for the cellar by joining with user_wines
-      // This ensures we only get wines that are actually in the user's cellar
+      // Note: We fetch all wines for the owner first, then filter by cellar_id in JS
+      // This is because PostgREST nested filters (wines.cellar_id) can be unreliable
+      // and may cause newly added wines to not appear
       const { data: userWines, error } = await authenticatedSupabase
         .from("user_wines")
         .select(`
@@ -104,14 +106,14 @@ export async function GET(request: NextRequest) {
             created_at
           )
         `)
-        .eq("user_id", cellar.owner_id)
-        .eq("wines.cellar_id", cellarId);
+        .eq("user_id", cellar.owner_id);
 
       if (error) throw error;
 
-      // Filter out any null wines (shouldn't happen, but safety check)
+      // Filter by cellar_id and filter out any null wines
+      // We filter in JS because PostgREST nested filters can be unreliable
       const formatted = userWines
-        ?.filter((uw: any) => uw.wines)
+        ?.filter((uw: any) => uw.wines && uw.wines.cellar_id === cellarId)
         .map((uw: any) => ({
           id: uw.wines.id,
           name: uw.wines.name,
@@ -131,7 +133,7 @@ export async function GET(request: NextRequest) {
           // Use nullish coalescing (??) to preserve 0 as a valid quantity
           quantity: uw.quantity ?? 1,
         }))
-        .sort((a: any, b: any) => 
+        .sort((a: any, b: any) =>
           new Date(b.date_added).getTime() - new Date(a.date_added).getTime()
         ) || [];
 
@@ -289,7 +291,7 @@ export async function POST(request: NextRequest) {
         .select("owner_id")
         .eq("id", cellarId)
         .single();
-      
+
       cellarOwnerId = cellar?.owner_id || null;
     }
 
@@ -315,19 +317,20 @@ export async function POST(request: NextRequest) {
 
     // Calculate quantity early as it's needed for both paths
     const rawQuantity = wineData.quantity;
-    const quantityNum = typeof rawQuantity === "number" ? rawQuantity : 
-                        (typeof rawQuantity === "string" ? parseInt(rawQuantity, 10) : 1);
+    const quantityNum = typeof rawQuantity === "number" ? rawQuantity :
+      (typeof rawQuantity === "string" ? parseInt(rawQuantity, 10) : 1);
     const quantity = Math.max(1, isNaN(quantityNum) ? 1 : quantityNum);
     const ownerIdForWine = cellarOwnerId || user.id;
 
-    // Check for existing matching wine in global catalog
-    // This matches the mobile app's add_user_wine RPC function behavior
+    // Check for existing matching wine in the same cellar
+    // Only reuse wines that belong to the same cellar to ensure they appear correctly
     const matchingWine = await findMatchingWine(
       authenticatedSupabase,
       wineData.name as string,
       wineData.vintage as number | undefined,
       wineData.region as string | undefined,
-      wineData.country as string | undefined
+      wineData.country as string | undefined,
+      cellarId || null
     );
 
     if (matchingWine) {
@@ -367,8 +370,8 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      return successResponse({ 
-        success: true, 
+      return successResponse({
+        success: true,
         wine: { ...matchingWine, quantity: existingLink ? existingLink.quantity + quantity : quantity },
         reused: true // Flag to indicate wine was reused from catalog
       });
@@ -538,8 +541,8 @@ export async function PUT(request: NextRequest) {
 
     // Update quantity in the OWNER's user_wines record
     if (quantity !== undefined && cellar?.owner_id) {
-      const quantityNum = typeof quantity === "number" ? quantity : 
-                          (typeof quantity === "string" ? parseInt(quantity, 10) : 0);
+      const quantityNum = typeof quantity === "number" ? quantity :
+        (typeof quantity === "string" ? parseInt(quantity, 10) : 0);
       const validQuantity = isNaN(quantityNum) ? 0 : quantityNum;
       await authenticatedSupabase
         .from("user_wines")
@@ -661,7 +664,8 @@ export async function DELETE(request: NextRequest) {
 // ============ Helper Functions ============
 
 /**
- * Find a matching wine in the global wines catalog
+ * Find a matching wine in the wines catalog within the same cellar
+ * Only matches wines that belong to the same cellar to ensure they appear correctly
  * Uses the same logic as the mobile app's add_user_wine RPC function:
  * 1. First tries exact name match with matching vintage/region/country
  * 2. If no exact match, tries fuzzy matching with 70% similarity threshold
@@ -671,7 +675,8 @@ async function findMatchingWine(
   name: string,
   vintage?: number | null,
   region?: string | null,
-  country?: string | null
+  country?: string | null,
+  cellarId?: string | null
 ): Promise<{
   id: string;
   name: string;
@@ -685,13 +690,23 @@ async function findMatchingWine(
   score?: number | null;
   label_image_url?: string;
   notes?: string;
+  cellar_id?: string | null;
 } | null> {
   const normalizedName = name.toLowerCase().trim();
 
-  // Query wines table for potential matches (fuzzy search on name)
-  const { data: wines, error } = await supabase
+  // Build query - filter by cellar_id to only match wines in the same cellar
+  let query = supabase
     .from("wines")
-    .select("id, name, type, grape, grapes, is_blend, region, country, vintage, score, label_image_url, notes");
+    .select("id, name, type, grape, grapes, is_blend, region, country, vintage, score, label_image_url, notes, cellar_id");
+
+  // Only match wines in the same cellar
+  if (cellarId) {
+    query = query.eq("cellar_id", cellarId);
+  } else {
+    query = query.is("cellar_id", null);
+  }
+
+  const { data: wines, error } = await query;
 
   if (error || !wines || wines.length === 0) {
     return null;
@@ -744,28 +759,28 @@ async function filterWinesByOwnership(
   wines: any[] | null
 ): Promise<any[]> {
   if (!wines || wines.length === 0) return [];
-  
+
   // Get all unique cellar IDs from the wines
   const cellarIds = new Set(
     wines
       .map((uw: any) => uw.wines?.cellar_id)
       .filter((id: string | null | undefined) => id)
   );
-  
+
   if (cellarIds.size === 0) {
     // If no cellar IDs, include wines without cellars (legacy wines)
     return wines;
   }
-  
+
   // Get cellars where user is owner
   const { data: ownedCellars } = await supabase
     .from("cellars")
     .select("id")
     .eq("owner_id", userId)
     .in("id", Array.from(cellarIds));
-  
+
   const ownedCellarIds = new Set(ownedCellars?.map((c: any) => c.id) || []);
-  
+
   // Filter wines to only include those from owned cellars or wines without cellars
   return wines.filter((uw: any) => {
     const cellarId = uw.wines?.cellar_id;

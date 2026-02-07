@@ -22,6 +22,7 @@ import {
   UserCircle,
   Settings,
   LogOut,
+  Download,
 } from "lucide-react";
 import {
   Select,
@@ -65,6 +66,7 @@ export function ShareCellarDialog({
   const [savingName, setSavingName] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   const isOwner = cellar.owner_id === user?.id;
   const currentUserMember = members.find((m) => m.user_id === user?.id);
@@ -217,6 +219,58 @@ export function ShareCellarDialog({
 
     if (success) {
       onOpenChange(false);
+    }
+  };
+
+  const handleExportCsv = async () => {
+    setExporting(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const accessToken = session?.access_token;
+
+      if (!accessToken) {
+        throw new Error("Not authenticated");
+      }
+
+      const response = await fetch(`/api/cellars/export?cellarId=${cellar.id}`, {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || "Failed to export");
+      }
+
+      // Get the filename from Content-Disposition header
+      const contentDisposition = response.headers.get("Content-Disposition");
+      const filenameMatch = contentDisposition?.match(/filename="(.+)"/);
+      const filename = filenameMatch ? filenameMatch[1] : "wines_export.csv";
+
+      // Create blob and trigger download
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      toast({
+        title: "Export complete",
+        description: "Your wine collection has been exported to CSV.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Export failed",
+        description: error.message || "Failed to export wines",
+        variant: "destructive",
+      });
+    } finally {
+      setExporting(false);
     }
   };
 
@@ -499,6 +553,32 @@ export function ShareCellarDialog({
               </div>
               <p className="text-xs text-muted-foreground">
                 The user will receive an invitation they can accept or decline.
+              </p>
+            </div>
+          )}
+
+          {/* Export Section - only for owner or admin */}
+          {canManageMembers && (
+            <div className="space-y-3">
+              <Label className="text-sm font-medium flex items-center gap-2">
+                <Download className="w-4 h-4 text-muted-foreground" />
+                Export Data
+              </Label>
+              <Button
+                variant="outline"
+                className="w-full rounded-xl h-11"
+                onClick={handleExportCsv}
+                disabled={exporting}
+              >
+                {exporting ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                ) : (
+                  <Download className="h-4 w-4 mr-2" />
+                )}
+                Export Wines as CSV
+              </Button>
+              <p className="text-xs text-muted-foreground">
+                Download all wines in this cellar as a CSV file.
               </p>
             </div>
           )}
