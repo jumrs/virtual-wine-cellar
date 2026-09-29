@@ -81,29 +81,21 @@ function cleanupRateLimitStore(): void {
 }
 
 /**
- * Sanitize text input to prevent XSS attacks
- * Escapes HTML special characters and removes dangerous patterns
+ * Normalize untrusted text before storing it or sending it to the LLM.
+ *
+ * Deliberately does NOT HTML-escape: values are stored raw and React escapes
+ * them at render time. Escaping here corrupted data (e.g. "d'Yquem" was saved
+ * as "d&#x27;Yquem" and displayed literally). Never render these values with
+ * dangerouslySetInnerHTML.
  */
 export function sanitizeTextInput(input: string | null | undefined): string {
   if (!input) return "";
 
   return input
-    // Remove null bytes
-    .replace(/\0/g, "")
-    // Escape HTML special characters
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#x27;")
-    .replace(/\//g, "&#x2F;")
-    // Remove potential script injections
-    .replace(/javascript:/gi, "")
-    .replace(/data:/gi, "data-blocked:")
-    .replace(/vbscript:/gi, "")
-    // Remove event handlers
-    .replace(/on\w+\s*=/gi, "blocked=")
-    // Trim and normalize whitespace
+    .normalize("NFC")
+    // Remove null bytes and other control characters (keep tab and newline)
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "")
+    .replace(/\r\n?/g, "\n")
     .trim();
 }
 

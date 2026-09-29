@@ -6,7 +6,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Wine as WineIcon,
-  ArrowLeft,
   LogOut,
   User,
   Mail,
@@ -14,14 +13,11 @@ import {
   Package,
   Star,
   Settings,
-  HelpCircle,
-  ChevronRight,
   Camera,
   Save,
   Loader2,
   X,
 } from "lucide-react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/lib/supabaseClient";
@@ -78,8 +74,17 @@ export default function ProfilePage() {
     }
   }, [profile, editing]);
 
-  // Calculate stats
-  const stats = useMemo(() => calculateWineStats(wines), [wines]);
+  // Filter out ran out wines for analytics (quantity must be > 0)
+  // Note: API may return quantity=1 for null values, so we explicitly check for > 0
+  const activeWines = useMemo(() => {
+    return wines.filter((w) => {
+      const qty = w.quantity ?? 0;
+      return qty > 0;
+    });
+  }, [wines]);
+
+  // Calculate stats using only active wines (excludes ran out wines)
+  const stats = useMemo(() => calculateWineStats(activeWines), [activeWines]);
 
   const displayName = useMemo(
     () => getDisplayName(profile, user),
@@ -212,12 +217,7 @@ export default function ProfilePage() {
       <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-lg border-b border-border/50">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center gap-4">
-            <Link href="/">
-              <Button variant="ghost" size="icon" className="rounded-full w-10 h-10">
-                <ArrowLeft className="h-5 w-5" />
-              </Button>
-            </Link>
-            <h1 className="text-xl font-semibold font-serif">Profile</h1>
+            <h1 className="text-xl font-semibold">Profile</h1>
             {editing && (
               <div className="ml-auto flex gap-2">
                 <Button
@@ -270,17 +270,19 @@ export default function ProfilePage() {
                   <User className="w-10 h-10 text-primary" />
                 </div>
               )}
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                disabled={uploadingAvatar}
-                className="absolute bottom-0 right-0 w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center shadow-lg hover:bg-primary/90 transition-colors"
-              >
-                {uploadingAvatar ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Camera className="w-4 h-4" />
-                )}
-              </button>
+              {editing && (
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploadingAvatar}
+                  className="absolute bottom-0 right-0 w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center shadow-lg hover:bg-primary/90 transition-colors"
+                >
+                  {uploadingAvatar ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Camera className="w-4 h-4" />
+                  )}
+                </button>
+              )}
               <input
                 ref={fileInputRef}
                 type="file"
@@ -332,7 +334,7 @@ export default function ProfilePage() {
                 </div>
               ) : (
                 <>
-                  <h2 className="font-semibold font-serif text-lg">{displayName}</h2>
+                  <h2 className="font-semibold text-lg">{displayName}</h2>
                   <p className="text-sm text-muted-foreground flex items-center gap-1">
                     <Mail className="w-3 h-3" />
                     {user.email}
@@ -386,21 +388,8 @@ export default function ProfilePage() {
         </div>
 
         {/* Menu Items */}
+        {/* Settings and Help & Support rows are hidden until those screens exist */}
         <div className="wine-card divide-y divide-border/50">
-          <button className="w-full flex items-center justify-between p-4 hover:bg-muted/30 transition-colors">
-            <div className="flex items-center gap-3">
-              <Settings className="w-5 h-5 text-muted-foreground" />
-              <span>Settings</span>
-            </div>
-            <ChevronRight className="w-5 h-5 text-muted-foreground" />
-          </button>
-          <button className="w-full flex items-center justify-between p-4 hover:bg-muted/30 transition-colors">
-            <div className="flex items-center gap-3">
-              <HelpCircle className="w-5 h-5 text-muted-foreground" />
-              <span>Help & Support</span>
-            </div>
-            <ChevronRight className="w-5 h-5 text-muted-foreground" />
-          </button>
           <button
             onClick={handleSignOut}
             className="w-full flex items-center justify-between p-4 hover:bg-muted/30 transition-colors text-destructive"
@@ -426,28 +415,28 @@ export default function ProfilePage() {
           <WinesAnalyticsModal
             open={winesModalOpen}
             onOpenChange={setWinesModalOpen}
-            wines={wines}
+            wines={activeWines}
           />
         )}
         {bottlesModalOpen && (
           <BottlesAnalyticsModal
             open={bottlesModalOpen}
             onOpenChange={setBottlesModalOpen}
-            wines={wines}
+            wines={activeWines}
           />
         )}
         {ratingModalOpen && (
           <RatingAnalyticsModal
             open={ratingModalOpen}
             onOpenChange={setRatingModalOpen}
-            wines={wines}
+            wines={activeWines}
           />
         )}
         {countriesModalOpen && (
           <CountriesAnalyticsModal
             open={countriesModalOpen}
             onOpenChange={setCountriesModalOpen}
-            wines={wines}
+            wines={activeWines}
           />
         )}
       </Suspense>

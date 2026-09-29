@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Star, Search, Camera, Wine, User, Lock } from "lucide-react";
+import { Search, ScanLine, Wine, CircleUser, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCellar } from "@/components/CellarProvider";
+import { WineBottleIcon } from "@/components/icons/WineBottleIcon";
 
 interface NavItem {
   href: string;
@@ -17,29 +18,33 @@ interface NavItem {
 const navItems: NavItem[] = [
   {
     href: "/",
-    icon: <Star className="w-6 h-6" strokeWidth={1.5} />,
-    activeIcon: <Star className="w-6 h-6 fill-current" strokeWidth={1.5} />,
+    icon: <WineBottleIcon className="w-6 h-6" />,
+    activeIcon: <WineBottleIcon className="w-6 h-6" fill="currentColor" />,
     label: "Cellar",
   },
   {
     href: "/search",
     icon: <Search className="w-6 h-6" strokeWidth={1.5} />,
+    activeIcon: <Search className="w-6 h-6" strokeWidth={2.25} />,
     label: "Search",
   },
   {
     href: "/upload",
-    icon: <Camera className="w-6 h-6" strokeWidth={1.5} />,
+    icon: <ScanLine className="w-6 h-6" strokeWidth={1.5} />,
+    activeIcon: <ScanLine className="w-6 h-6" strokeWidth={2.25} />,
     label: "Scan",
     requiresEdit: true,
   },
   {
     href: "/pairings",
     icon: <Wine className="w-6 h-6" strokeWidth={1.5} />,
+    activeIcon: <Wine className="w-6 h-6" strokeWidth={2.25} />,
     label: "Pairings",
   },
   {
     href: "/profile",
-    icon: <User className="w-6 h-6" strokeWidth={1.5} />,
+    icon: <CircleUser className="w-6 h-6" strokeWidth={1.5} />,
+    activeIcon: <CircleUser className="w-6 h-6" strokeWidth={2.25} />,
     label: "Profile",
   },
 ];
@@ -82,6 +87,7 @@ export function BottomNav() {
             <Link
               key={item.href}
               href={item.href}
+              aria-current={isActive ? "page" : undefined}
               className={cn(
                 "bottom-nav-item",
                 isActive && "active"

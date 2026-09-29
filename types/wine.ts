@@ -18,7 +18,10 @@ export interface Wine {
   is_blend?: boolean;
   vintage?: number;
   score?: number | null;
+  /** URL to the standardized bottle/product image (from AI enrichment or manual selection) */
   label_image_url?: string;
+  /** URL to the user-uploaded label photo (from scan) */
+  user_uploaded_label_url?: string;
   notes?: string;
   date_added?: string;
   quantity?: number;
@@ -87,6 +90,8 @@ export interface CellarContextState {
   activeCellar: Cellar | null;
   /** User's role in the active cellar */
   userRole: CellarRole | null;
+  /** ID of the main cellar (displays on login) */
+  mainCellarId: string | null;
   /** Whether user can edit (owner or admin) */
   canEdit: boolean;
   /** Whether user can delete wines (owner only) */
@@ -111,6 +116,8 @@ export interface CellarContextState {
   removeMember: (cellarId: string, userId: string) => Promise<boolean>;
   /** Leave a cellar (for non-owners) */
   leaveCellar: (cellarId: string) => Promise<boolean>;
+  /** Set the main cellar (the one that displays on login) */
+  setMainCellar: (cellarId: string | null) => Promise<boolean>;
 }
 
 /** Wine with file for upload form */
@@ -128,6 +135,7 @@ export interface WineWithFile {
 /** Data extracted from wine label analysis */
 export interface ExtractedWineData {
   name: string;
+  producer?: string;
   type?: string;
   /** @deprecated Use grapes array instead */
   grape?: string;
@@ -137,6 +145,10 @@ export interface ExtractedWineData {
   country?: string;
   vintage?: number;
   notes?: string;
+  /** Standardized bottle image URL from AI enrichment */
+  standard_image_url?: string | null;
+  /** AI confidence score (0.0 to 1.0) */
+  confidence?: number;
 }
 
 /** User profile data */
@@ -146,6 +158,7 @@ export interface UserProfile {
   username: string | null;
   name: string | null;
   avatar_url: string | null;
+  main_cellar_id?: string | null;
 }
 
 /** Pairing chat message */

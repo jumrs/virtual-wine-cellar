@@ -55,7 +55,7 @@ export function DuplicateWineDialog({
               <AlertTriangle className="w-6 h-6 text-amber-600" />
             </div>
             <div>
-              <DialogTitle className="font-serif text-xl">Possible Duplicate</DialogTitle>
+              <DialogTitle className="text-xl">Possible Duplicate</DialogTitle>
               <DialogDescription className="text-sm">
                 This wine might already be in your cellar
               </DialogDescription>

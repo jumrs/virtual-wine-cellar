@@ -10,6 +10,12 @@ const nextConfig = {
         protocol: 'https',
         hostname: 'flagcdn.com',
       },
+      // Allow images from any HTTPS source for wine bottle images from web search
+      // The CSP header already restricts to HTTPS, and we validate URLs server-side
+      {
+        protocol: 'https',
+        hostname: '**',
+      },
     ],
   },
 

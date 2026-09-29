@@ -24,6 +24,7 @@ const CellarContext = createContext<CellarContextState>({
   cellars: [],
   activeCellar: null,
   userRole: null,
+  mainCellarId: null,
   canEdit: false,
   canDelete: false,
   loading: true,
@@ -36,6 +37,7 @@ const CellarContext = createContext<CellarContextState>({
   inviteUser: async () => false,
   removeMember: async () => false,
   leaveCellar: async () => false,
+  setMainCellar: async () => false,
 });
 
 export function CellarProvider({ children }: CellarProviderProps) {
@@ -44,6 +46,7 @@ export function CellarProvider({ children }: CellarProviderProps) {
   const [cellars, setCellars] = useState<Cellar[]>([]);
   const [activeCellar, setActiveCellarState] = useState<Cellar | null>(null);
   const [userRole, setUserRole] = useState<"owner" | "admin" | "member" | null>(null);
+  const [mainCellarId, setMainCellarId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const mountedRef = useRef(true);
@@ -94,17 +97,57 @@ export function CellarProvider({ children }: CellarProviderProps) {
 
       setCellars(data);
 
-      // Restore active cellar from localStorage or use first cellar
-      const savedCellarId = localStorage.getItem(ACTIVE_CELLAR_KEY);
-      const savedCellar = savedCellarId
-        ? data.find((c: Cellar) => c.id === savedCellarId)
-        : null;
+      // Fetch user profile to get main_cellar_id
+      let fetchedMainCellarId: string | null = null;
+      try {
+        const profileResponse = await fetch("/api/profile", {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+          cache: "no-store",
+        });
+        if (profileResponse.ok) {
+          const profileData = await profileResponse.json();
+          fetchedMainCellarId = profileData.main_cellar_id || null;
+          if (mountedRef.current) {
+            setMainCellarId(fetchedMainCellarId);
+          }
+        }
+      } catch (err) {
+        // If profile fetch fails, continue with fallback logic
+        console.warn("Failed to fetch profile for main cellar:", err);
+      }
 
-      if (savedCellar) {
-        setActiveCellarState(savedCellar);
-      } else if (data.length > 0) {
-        setActiveCellarState(data[0]);
-        localStorage.setItem(ACTIVE_CELLAR_KEY, data[0].id);
+      // Priority: main_cellar_id > localStorage > first cellar
+      let selectedCellar: Cellar | null = null;
+
+      // 1. Try main cellar if set and user is still a member
+      if (fetchedMainCellarId) {
+        const mainCellar = data.find((c: Cellar) => c.id === fetchedMainCellarId);
+        if (mainCellar) {
+          selectedCellar = mainCellar;
+        }
+      }
+
+      // 2. Fall back to localStorage if main cellar not found or not set
+      if (!selectedCellar) {
+        const savedCellarId = localStorage.getItem(ACTIVE_CELLAR_KEY);
+        const savedCellar = savedCellarId
+          ? data.find((c: Cellar) => c.id === savedCellarId)
+          : null;
+        if (savedCellar) {
+          selectedCellar = savedCellar;
+        }
+      }
+
+      // 3. Fall back to first cellar if nothing else works
+      if (!selectedCellar && data.length > 0) {
+        selectedCellar = data[0];
+      }
+
+      if (selectedCellar) {
+        setActiveCellarState(selectedCellar);
+        localStorage.setItem(ACTIVE_CELLAR_KEY, selectedCellar.id);
       }
 
       // If user has no cellars, create a default one
@@ -248,6 +291,60 @@ export function CellarProvider({ children }: CellarProviderProps) {
     [getAccessToken, toast]
   );
 
+  // Set main cellar (the one that displays on login)
+  const setMainCellar = useCallback(
+    async (cellarId: string | null): Promise<boolean> => {
+      if (!user) return false;
+      
+      try {
+        const accessToken = await getAccessToken();
+        if (!accessToken) throw new Error("Not authenticated");
+
+        // If setting a main cellar, verify user is a member
+        if (cellarId) {
+          const isMember = cellars.some((c) => c.id === cellarId);
+          if (!isMember) {
+            throw new Error("You must be a member of the cellar to set it as main");
+          }
+        }
+
+        const response = await fetch("/api/profile", {
+          method: "PUT",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ main_cellar_id: cellarId }),
+        });
+
+        if (!response.ok) {
+          const data = await response.json();
+          throw new Error(data.error || "Failed to set main cellar");
+        }
+
+        // Update local state
+        setMainCellarId(cellarId);
+
+        toast({
+          title: cellarId ? "Main cellar set" : "Main cellar cleared",
+          description: cellarId
+            ? "This cellar will now display when you log in."
+            : "No main cellar is set.",
+        });
+
+        return true;
+      } catch (err: any) {
+        toast({
+          title: "Error",
+          description: err.message || "Failed to set main cellar",
+          variant: "destructive",
+        });
+        return false;
+      }
+    },
+    [getAccessToken, toast, user, cellars]
+  );
+
   // Delete a cellar
   const deleteCellar = useCallback(
     async (cellarId: string): Promise<boolean> => {
@@ -280,6 +377,11 @@ export function CellarProvider({ children }: CellarProviderProps) {
           return newCellars;
         });
 
+        // If we deleted the main cellar, clear it
+        if (mainCellarId === cellarId) {
+          await setMainCellar(null);
+        }
+
         toast({
           title: "Cellar deleted",
           description: "The cellar has been removed.",
@@ -295,7 +397,7 @@ export function CellarProvider({ children }: CellarProviderProps) {
         return false;
       }
     },
-    [getAccessToken, toast, activeCellar]
+    [getAccessToken, toast, activeCellar, mainCellarId, setMainCellar]
   );
 
   // Rename a cellar
@@ -509,6 +611,11 @@ export function CellarProvider({ children }: CellarProviderProps) {
           return newCellars;
         });
 
+        // If we left the main cellar, clear it
+        if (mainCellarId === cellarId) {
+          await setMainCellar(null);
+        }
+
         toast({
           title: "Left cellar",
           description: "You have left the cellar.",
@@ -524,7 +631,7 @@ export function CellarProvider({ children }: CellarProviderProps) {
         return false;
       }
     },
-    [getAccessToken, toast, user, activeCellar]
+    [getAccessToken, toast, user, activeCellar, mainCellarId, setMainCellar]
   );
 
   // Initial fetch when user changes
@@ -550,6 +657,7 @@ export function CellarProvider({ children }: CellarProviderProps) {
       cellars,
       activeCellar,
       userRole,
+      mainCellarId,
       canEdit,
       canDelete,
       loading,
@@ -562,11 +670,13 @@ export function CellarProvider({ children }: CellarProviderProps) {
       inviteUser,
       removeMember,
       leaveCellar,
+      setMainCellar,
     }),
     [
       cellars,
       activeCellar,
       userRole,
+      mainCellarId,
       canEdit,
       canDelete,
       loading,
@@ -579,6 +689,7 @@ export function CellarProvider({ children }: CellarProviderProps) {
       inviteUser,
       removeMember,
       leaveCellar,
+      setMainCellar,
     ]
   );
 

@@ -175,13 +175,13 @@ export const WineCard = memo(function WineCard({
         onClick={handleCardClick}
       >
         {/* Image Container */}
-        <div className="wine-image-container aspect-[3/4] relative">
+        <div className="wine-image-container aspect-[3/4] relative bg-white">
           {wine.label_image_url ? (
             <Image
               src={wine.label_image_url}
               alt={wine.name}
               fill
-              className="object-cover"
+              className="object-contain"
               sizes="(max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
             />
           ) : (

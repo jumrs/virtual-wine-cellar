@@ -26,10 +26,17 @@ interface BottlesAnalyticsModalProps {
 }
 
 export function BottlesAnalyticsModal({ open, onOpenChange, wines }: BottlesAnalyticsModalProps) {
+  // Filter out ran out wines (quantity must be > 0)
+  const activeWines = useMemo(() => {
+    return wines.filter((w) => {
+      const qty = w.quantity ?? 0;
+      return qty > 0;
+    });
+  }, [wines]);
+
   // Calculate bottles per wine (top 10)
   const bottleData = useMemo(() => {
-    return wines
-      .filter(w => (w.quantity || 0) > 0)
+    return activeWines
       .map(wine => ({
         name: wine.name.length > 20 ? wine.name.slice(0, 20) + '...' : wine.name,
         fullName: wine.name,
@@ -38,14 +45,14 @@ export function BottlesAnalyticsModal({ open, onOpenChange, wines }: BottlesAnal
       }))
       .sort((a, b) => b.bottles - a.bottles)
       .slice(0, 10);
-  }, [wines]);
+  }, [activeWines]);
 
   // Stats
   const stats = useMemo(() => {
-    const winesWithMultipleBottles = wines.filter(w => (w.quantity || 0) > 1).length;
+    const winesWithMultipleBottles = activeWines.filter(w => (w.quantity || 0) > 1).length;
     const mostStocked = bottleData[0];
-    const totalBottles = wines.reduce((sum, w) => sum + (w.quantity || 0), 0);
-    const avgBottlesPerWine = wines.length > 0 ? (totalBottles / wines.length).toFixed(1) : 0;
+    const totalBottles = activeWines.reduce((sum, w) => sum + (w.quantity || 0), 0);
+    const avgBottlesPerWine = activeWines.length > 0 ? (totalBottles / activeWines.length).toFixed(1) : 0;
     
     return {
       winesWithMultipleBottles,
@@ -53,7 +60,7 @@ export function BottlesAnalyticsModal({ open, onOpenChange, wines }: BottlesAnal
       totalBottles,
       avgBottlesPerWine,
     };
-  }, [wines, bottleData]);
+  }, [activeWines, bottleData]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
