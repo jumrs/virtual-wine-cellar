@@ -87,8 +87,8 @@ export async function GET(request: NextRequest) {
       return response;
     }
 
-    // Legacy: Fetch wines via user_wines (backward compatibility)
-    // For profile page: only count wines from cellars where user is owner (not admin)
+    // No cellarId (profile stats, search): wines across all cellars the user owns.
+    // Excludes cellars where the user is only admin/member, and wines with no cellar.
     const { data: wines, error } = await authenticatedSupabase
       .from("user_wines")
       .select(`
@@ -695,7 +695,9 @@ async function findMatchingWine(
 }
 
 /**
- * Filter wines to only include those from cellars where user is owner (not admin)
+ * Filter wines to only include those from cellars where user is owner (not admin).
+ * Wines without a cellar (pre-shared-cellars legacy rows) are excluded: they don't
+ * appear in any cellar, so they must not count toward stats or search.
  */
 async function filterWinesByOwnership(
   supabase: ReturnType<typeof import("@/lib/supabaseServer").createAuthenticatedClient>,
@@ -712,8 +714,7 @@ async function filterWinesByOwnership(
   );
 
   if (cellarIds.size === 0) {
-    // If no cellar IDs, include wines without cellars (legacy wines)
-    return wines;
+    return [];
   }
 
   // Get cellars where user is owner
@@ -725,11 +726,9 @@ async function filterWinesByOwnership(
 
   const ownedCellarIds = new Set(ownedCellars?.map((c: any) => c.id) || []);
 
-  // Filter wines to only include those from owned cellars or wines without cellars
   return wines.filter((uw: any) => {
     const cellarId = uw.wines?.cellar_id;
-    // Include if no cellar (legacy) or if cellar is owned by user
-    return !cellarId || ownedCellarIds.has(cellarId);
+    return !!cellarId && ownedCellarIds.has(cellarId);
   });
 }
 
