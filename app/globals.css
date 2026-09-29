@@ -2,50 +2,48 @@
 @tailwind components;
 @tailwind utilities;
 
-@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400&family=DM+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap');
-
 @layer base {
   :root {
-    /* Wine-inspired color palette */
-    --background: 0 0% 98%;
-    --foreground: 0 0% 13%;
-    
+    /* iOS-style neutrals with a single deep burgundy accent */
+    --background: 240 24% 96%;          /* grouped background (#F2F2F7) */
+    --foreground: 240 6% 10%;
+
     --card: 0 0% 100%;
-    --card-foreground: 0 0% 13%;
-    
+    --card-foreground: 240 6% 10%;
+
     --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 13%;
-    
-    /* Wine red primary color */
-    --primary: 348 83% 47%;
+    --popover-foreground: 240 6% 10%;
+
+    /* Burgundy primary */
+    --primary: 345 68% 32%;
     --primary-foreground: 0 0% 100%;
-    
-    --secondary: 30 20% 96%;
-    --secondary-foreground: 0 0% 13%;
-    
-    --muted: 30 10% 94%;
-    --muted-foreground: 0 0% 45%;
-    
-    --accent: 348 83% 47%;
+
+    --secondary: 240 11% 91%;
+    --secondary-foreground: 240 6% 10%;
+
+    --muted: 240 8% 93%;
+    --muted-foreground: 240 3% 46%;
+
+    --accent: 345 68% 32%;
     --accent-foreground: 0 0% 100%;
-    
-    --destructive: 0 84% 60%;
+
+    --destructive: 3 100% 59%;
     --destructive-foreground: 0 0% 100%;
-    
-    --border: 30 15% 90%;
-    --input: 30 15% 90%;
-    --ring: 348 83% 47%;
+
+    --border: 240 6% 87%;
+    --input: 240 6% 87%;
+    --ring: 345 68% 32%;
     --radius: 1rem;
-    
+
     /* Wine-specific colors */
-    --wine-red: 348 83% 47%;
-    --wine-burgundy: 345 70% 35%;
+    --wine-red: 345 68% 32%;
+    --wine-burgundy: 345 62% 22%;
     --wine-gold: 45 80% 50%;
-    --wine-cream: 40 30% 96%;
-    
+    --wine-cream: 240 24% 96%;
+
     /* Chart colors */
-    --chart-1: 348 83% 47%;
-    --chart-2: 345 70% 35%;
+    --chart-1: 345 68% 32%;
+    --chart-2: 345 62% 22%;
     --chart-3: 45 80% 50%;
     --chart-4: 30 20% 60%;
     --chart-5: 0 0% 70%;
@@ -61,27 +59,27 @@
     --popover: 0 0% 12%;
     --popover-foreground: 30 15% 95%;
     
-    --primary: 348 80% 55%;
+    --primary: 345 60% 52%;
     --primary-foreground: 0 0% 100%;
-    
+
     --secondary: 0 0% 18%;
     --secondary-foreground: 30 15% 95%;
-    
+
     --muted: 0 0% 18%;
     --muted-foreground: 30 10% 55%;
-    
-    --accent: 348 80% 55%;
+
+    --accent: 345 60% 52%;
     --accent-foreground: 0 0% 100%;
-    
+
     --destructive: 0 70% 50%;
     --destructive-foreground: 0 0% 100%;
-    
+
     --border: 0 0% 20%;
     --input: 0 0% 20%;
-    --ring: 348 80% 55%;
-    
-    --wine-red: 348 80% 55%;
-    --wine-burgundy: 345 65% 45%;
+    --ring: 345 60% 52%;
+
+    --wine-red: 345 60% 52%;
+    --wine-burgundy: 345 55% 38%;
     --wine-gold: 45 75% 55%;
     --wine-cream: 0 0% 15%;
   }
@@ -93,117 +91,30 @@
   }
   
   body {
-    @apply bg-background text-foreground antialiased;
-    font-family: 'DM Sans', system-ui, sans-serif;
+    @apply bg-background text-foreground font-sans antialiased;
     /* Ensure body can scroll on mobile */
     overflow-x: hidden;
   }
-  
+
   h1, h2, h3, h4, h5, h6 {
-    font-family: 'Cormorant Garamond', Georgia, serif;
     @apply font-semibold tracking-tight;
+  }
+
+  /* iOS zooms into inputs with font-size < 16px on focus; keep them at 16px on phones
+     so pinch-zoom can stay enabled without unwanted auto-zoom */
+  @media (max-width: 768px) {
+    input,
+    textarea,
+    select {
+      font-size: 16px !important;
+    }
   }
 }
 
 @layer components {
   /* Elegant card styling */
   .wine-card {
-    @apply bg-card rounded-2xl shadow-sm border border-border/50 overflow-hidden transition-all duration-300;
-  }
-  
-  .wine-card:hover {
-    @apply shadow-lg shadow-black/5 -translate-y-1;
-  }
-
-  .wine-card-premium {
-    position: relative;
-    border-radius: 14px;
-    background-clip: padding-box;
-    box-shadow: 
-      0 6px 25px rgba(251, 191, 36, 0.55),
-      0 0 12px rgba(245, 158, 11, 0.45) inset,
-      0 0 40px rgba(251, 191, 36, 0.35),
-      0 4px 14px rgba(217, 119, 6, 0.25);
-    transition: all 0.3s ease-in-out;
-  }
-  
-  .wine-card-premium::before {
-    content: '';
-    position: absolute;
-    inset: -3px;
-    border-radius: inherit;
-    padding: 3px;
-    background: linear-gradient(135deg, 
-      #fbbf24, 
-      #f59e0b, 
-      #b45309, 
-      #fbbf24, 
-      #fde047);
-    -webkit-mask: 
-      linear-gradient(#fff 0 0) content-box, 
-      linear-gradient(#fff 0 0);
-    -webkit-mask-composite: xor;
-    mask-composite: exclude;
-    pointer-events: none;
-    z-index: -1;
-    filter: brightness(1.15);
-  }
-  
-  .wine-card-premium::after {
-    content: '';
-    position: absolute;
-    inset: -3px;
-    border-radius: inherit;
-    padding: 3px;
-    background: linear-gradient(135deg, 
-      rgba(251, 191, 36, 0.9) 0%,
-      rgba(245, 158, 11, 0.95) 25%,
-      rgba(217, 119, 6, 0.85) 50%,
-      rgba(251, 191, 36, 0.9) 75%,
-      rgba(253, 224, 71, 0.8) 100%);
-    -webkit-mask: 
-      linear-gradient(#fff 0 0) content-box, 
-      linear-gradient(#fff 0 0);
-    -webkit-mask-composite: xor;
-    mask-composite: exclude;
-    pointer-events: none;
-    z-index: -2;
-    filter: blur(1px);
-    opacity: 0.9;
-  }
-  
-  .wine-card-premium:hover {
-    box-shadow: 
-      0 8px 32px rgba(251, 191, 36, 0.65),
-      0 0 15px rgba(245, 158, 11, 0.55) inset,
-      0 0 55px rgba(251, 191, 36, 0.45),
-      0 6px 18px rgba(217, 119, 6, 0.3);
-    transform: translateY(-2px);
-  }
-  
-  .wine-card-premium:hover::before {
-    background: linear-gradient(135deg, 
-      #fde047, 
-      #fcd34d, 
-      #fbbf24, 
-      #f59e0b, 
-      #b45309, 
-      #f59e0b, 
-      #fbbf24, 
-      #fcd34d, 
-      #fde047);
-    filter: brightness(1.3);
-  }
-  
-  .wine-card-premium:hover::after {
-    opacity: 1;
-    background: linear-gradient(135deg, 
-      rgba(254, 240, 138, 0.85) 0%,
-      rgba(253, 224, 71, 0.95) 25%,
-      rgba(252, 211, 77, 1) 50%,
-      rgba(251, 191, 36, 0.95) 75%,
-      rgba(254, 240, 138, 0.85) 100%);
-    filter: blur(0.8px) brightness(1.2);
+    @apply bg-card rounded-2xl shadow-sm overflow-hidden;
   }
   
   /* Wine badge styling */
@@ -283,12 +194,11 @@
   
   /* Bottom navigation */
   .bottom-nav {
-    @apply fixed bottom-0 left-0 right-0 bg-card border-t border-border/50 z-50;
+    @apply fixed bottom-0 left-0 right-0 bg-card/85 backdrop-blur-xl border-t border-border z-50;
     padding-top: 0.5rem;
     padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 0.5rem);
     /* Set exact height: 70px base + safe area */
     height: calc(70px + env(safe-area-inset-bottom, 0px));
-    box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.05);
   }
   
   .bottom-nav > div {
@@ -333,8 +243,7 @@
   }
   
   .section-title {
-    @apply text-lg font-semibold text-foreground;
-    font-family: 'DM Sans', system-ui, sans-serif;
+    @apply text-xl font-bold text-foreground;
   }
   
   .see-all-link {
@@ -358,7 +267,7 @@
   }
   
   .btn-wine:hover {
-    @apply bg-primary/90 shadow-lg shadow-primary/25;
+    @apply bg-primary/90;
   }
   
   /* Quantity stepper */
@@ -454,7 +363,6 @@
   
   .empty-state-title {
     @apply text-xl font-semibold mb-2;
-    font-family: 'Cormorant Garamond', Georgia, serif;
   }
   
   .empty-state-text {

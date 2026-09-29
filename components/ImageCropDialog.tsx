@@ -119,7 +119,7 @@ export function ImageCropDialog({
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="max-w-lg p-0 gap-0 rounded-3xl overflow-hidden">
                 <DialogHeader className="p-4 pb-2">
-                    <DialogTitle className="font-serif text-xl">Crop Photo</DialogTitle>
+                    <DialogTitle className="text-xl">Crop Photo</DialogTitle>
                     <p className="text-sm text-muted-foreground">
                         Drag the corners or edges to adjust the crop area
                     </p>

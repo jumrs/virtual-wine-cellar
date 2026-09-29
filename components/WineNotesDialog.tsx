@@ -31,7 +31,7 @@ export const WineNotesDialog = memo(function WineNotesDialog({
       <DialogContent className="max-w-md max-h-[85vh] p-0 gap-0 rounded-3xl">
         <DialogHeader className="p-6 pb-4 border-b border-border/30">
           <div className="flex items-center justify-between">
-            <DialogTitle className="font-serif text-xl flex items-center gap-2">
+            <DialogTitle className="text-xl flex items-center gap-2">
               <Sparkles className="w-5 h-5 text-primary" />
               Notes
             </DialogTitle>

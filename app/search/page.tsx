@@ -4,7 +4,7 @@ import { useCallback, useMemo, useState, lazy, Suspense } from "react";
 import { WineCard } from "@/components/WineCard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Search, Wine as WineIcon, ArrowLeft, X } from "lucide-react";
+import { Search, Wine as WineIcon, X } from "lucide-react";
 import Link from "next/link";
 import { BottomNav } from "@/components/BottomNav";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
@@ -71,12 +71,7 @@ export default function SearchPage() {
       <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-lg border-b border-border/50">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center gap-4">
-            <Link href="/">
-              <Button variant="ghost" size="icon" className="rounded-full w-10 h-10">
-                <ArrowLeft className="h-5 w-5" />
-              </Button>
-            </Link>
-            <h1 className="text-xl font-semibold font-serif">Search</h1>
+            <h1 className="text-xl font-semibold">Search</h1>
           </div>
         </div>
       </header>

@@ -6,7 +6,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Wine as WineIcon,
-  ArrowLeft,
   LogOut,
   User,
   Mail,
@@ -14,14 +13,11 @@ import {
   Package,
   Star,
   Settings,
-  HelpCircle,
-  ChevronRight,
   Camera,
   Save,
   Loader2,
   X,
 } from "lucide-react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/lib/supabaseClient";
@@ -221,12 +217,7 @@ export default function ProfilePage() {
       <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-lg border-b border-border/50">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center gap-4">
-            <Link href="/">
-              <Button variant="ghost" size="icon" className="rounded-full w-10 h-10">
-                <ArrowLeft className="h-5 w-5" />
-              </Button>
-            </Link>
-            <h1 className="text-xl font-semibold font-serif">Profile</h1>
+            <h1 className="text-xl font-semibold">Profile</h1>
             {editing && (
               <div className="ml-auto flex gap-2">
                 <Button
@@ -343,7 +334,7 @@ export default function ProfilePage() {
                 </div>
               ) : (
                 <>
-                  <h2 className="font-semibold font-serif text-lg">{displayName}</h2>
+                  <h2 className="font-semibold text-lg">{displayName}</h2>
                   <p className="text-sm text-muted-foreground flex items-center gap-1">
                     <Mail className="w-3 h-3" />
                     {user.email}
@@ -397,21 +388,8 @@ export default function ProfilePage() {
         </div>
 
         {/* Menu Items */}
+        {/* Settings and Help & Support rows are hidden until those screens exist */}
         <div className="wine-card divide-y divide-border/50">
-          <button className="w-full flex items-center justify-between p-4 hover:bg-muted/30 transition-colors">
-            <div className="flex items-center gap-3">
-              <Settings className="w-5 h-5 text-muted-foreground" />
-              <span>Settings</span>
-            </div>
-            <ChevronRight className="w-5 h-5 text-muted-foreground" />
-          </button>
-          <button className="w-full flex items-center justify-between p-4 hover:bg-muted/30 transition-colors">
-            <div className="flex items-center gap-3">
-              <HelpCircle className="w-5 h-5 text-muted-foreground" />
-              <span>Help & Support</span>
-            </div>
-            <ChevronRight className="w-5 h-5 text-muted-foreground" />
-          </button>
           <button
             onClick={handleSignOut}
             className="w-full flex items-center justify-between p-4 hover:bg-muted/30 transition-colors text-destructive"

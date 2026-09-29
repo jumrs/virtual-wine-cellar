@@ -267,7 +267,7 @@ export const EditWineDialog = memo(function EditWineDialog({
         ) : (
           <DialogHeader className="p-6 pb-0">
             <div className="flex items-center justify-between">
-              <DialogTitle className="font-serif text-2xl">Edit Wine</DialogTitle>
+              <DialogTitle className="text-2xl">Edit Wine</DialogTitle>
               <Button
                 variant="ghost"
                 size="icon"

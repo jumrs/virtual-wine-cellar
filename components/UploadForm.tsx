@@ -405,7 +405,7 @@ export function UploadForm({ cellarId }: UploadFormProps) {
     <div className="space-y-6">
       {/* Header */}
       <div className="text-center">
-        <h1 className="text-3xl font-bold font-serif mb-2">Scan Wine Labels</h1>
+        <h1 className="text-3xl font-bold mb-2">Scan Wine Labels</h1>
         <p className="text-muted-foreground">
           Take a photo or upload up to {MAX_FILES} wine labels
         </p>

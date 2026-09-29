@@ -7,7 +7,7 @@ import Image from "next/image";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/lib/supabaseClient";
 import { cn } from "@/lib/utils";
-import { getCountryCode, getWineTypeBadgeClass, isPremiumWine } from "@/lib/wineUtils";
+import { getCountryCode, getWineTypeBadgeClass } from "@/lib/wineUtils";
 import type { Wine as WineType } from "@/types";
 
 // Re-export Wine type for backward compatibility
@@ -97,7 +97,6 @@ export const WineCard = memo(function WineCard({
   const { toast } = useToast();
 
   // Memoized computed values
-  const isPremium = isPremiumWine(wine);
   const hasNotes = wine.notes && wine.notes.trim().length > 0;
   const countryCode = getCountryCode(wine.country);
   const typeBadgeClass = getWineTypeBadgeClass(wine.type);
@@ -169,8 +168,7 @@ export const WineCard = memo(function WineCard({
         className={cn(
           "wine-card group",
           canEdit ? "cursor-pointer" : "cursor-default",
-          isRanOut && "opacity-50 grayscale",
-          isPremium && "wine-card-premium"
+          isRanOut && "opacity-50 grayscale"
         )}
         onClick={handleCardClick}
       >

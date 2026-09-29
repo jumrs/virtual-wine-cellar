@@ -214,7 +214,7 @@ export function EditWineImageDialog({
 
           <div className="p-6 space-y-4">
             <DialogHeader>
-              <DialogTitle className="font-serif text-xl">Edit Photo</DialogTitle>
+              <DialogTitle className="text-xl">Edit Photo</DialogTitle>
               <p className="text-sm text-muted-foreground">{wine.name}</p>
             </DialogHeader>
 

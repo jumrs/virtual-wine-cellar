@@ -8,6 +8,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/lib/supabaseClient";
 import { cn } from "@/lib/utils";
 import { useCellar } from "@/components/CellarProvider";
+import { ChatMarkdown } from "@/components/ChatMarkdown";
 
 interface Message {
   role: "user" | "assistant";
@@ -21,8 +22,10 @@ export function PairingChat() {
   const { toast } = useToast();
   const { activeCellar } = useCellar();
 
-  const handleSend = async () => {
-    if (!input.trim() || loading) return;
+  /** Send the typed input, or `text` directly (e.g. a tapped suggestion) */
+  const handleSend = async (text: string = input) => {
+    const meal = text.trim();
+    if (!meal || loading) return;
 
     if (!activeCellar) {
       toast({
@@ -33,7 +36,7 @@ export function PairingChat() {
       return;
     }
 
-    const userMessage: Message = { role: "user", content: input };
+    const userMessage: Message = { role: "user", content: meal };
     setMessages((prev) => [...prev, userMessage]);
     setInput("");
     setLoading(true);
@@ -52,7 +55,7 @@ export function PairingChat() {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${accessToken}`,
         },
-        body: JSON.stringify({ meal: input, cellarId: activeCellar.id }),
+        body: JSON.stringify({ meal, cellarId: activeCellar.id }),
       });
 
       if (!response.ok) {
@@ -113,7 +116,7 @@ export function PairingChat() {
                 <div className="absolute inset-0 rounded-full border-2 border-primary/10 scale-110" />
               </div>
 
-              <h3 className="font-serif text-xl font-semibold mb-2 text-foreground">
+              <h3 className="text-xl font-semibold mb-2 text-foreground">
                 Your Sommelier
               </h3>
               <p className="text-sm text-muted-foreground mb-6 text-center max-w-xs">
@@ -125,8 +128,9 @@ export function PairingChat() {
                 {suggestedQueries.map((query, index) => (
                   <button
                     key={index}
-                    onClick={() => setInput(query)}
-                    className="px-4 py-2 rounded-full bg-muted/50 hover:bg-primary/10 border border-border/50 hover:border-primary/30 text-sm transition-all duration-200"
+                    onClick={() => handleSend(query)}
+                    disabled={loading}
+                    className="px-4 py-2 rounded-full bg-card hover:bg-primary/10 border border-border hover:border-primary/30 text-sm transition-colors disabled:opacity-50"
                   >
                     {query}
                   </button>
@@ -169,12 +173,13 @@ export function PairingChat() {
                         : "bg-card border border-border/50 rounded-tl-sm"
                     )}
                   >
-                    <p className={cn(
-                      "text-sm whitespace-pre-wrap leading-relaxed",
-                      message.role === "user" ? "text-primary-foreground" : "text-foreground"
-                    )}>
-                      {message.content}
-                    </p>
+                    {message.role === "user" ? (
+                      <p className="text-sm whitespace-pre-wrap leading-relaxed text-primary-foreground">
+                        {message.content}
+                      </p>
+                    ) : (
+                      <ChatMarkdown content={message.content} className="text-foreground" />
+                    )}
                   </div>
                 </div>
               </div>
@@ -210,7 +215,7 @@ export function PairingChat() {
               className="flex-1 h-12 rounded-xl border border-border/50 focus:border-primary/50"
             />
             <Button
-              onClick={handleSend}
+              onClick={() => handleSend()}
               disabled={loading || !input.trim()}
               size="lg"
               className="rounded-xl h-12 px-5 btn-wine"

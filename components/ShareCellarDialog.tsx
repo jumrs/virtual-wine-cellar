@@ -318,7 +318,7 @@ export function ShareCellarDialog({
         {/* Header */}
         <DialogHeader className="p-6 pb-4 border-b">
           <div className="flex items-center justify-between">
-            <DialogTitle className="font-serif text-2xl flex items-center gap-3">
+            <DialogTitle className="text-2xl flex items-center gap-3">
               <Settings className="h-6 w-6 text-primary" />
               Cellar Settings
             </DialogTitle>

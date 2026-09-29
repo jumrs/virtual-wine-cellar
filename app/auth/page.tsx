@@ -171,28 +171,14 @@ export default function AuthPage() {
   // Show loading while checking auth
   if (authLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-primary/5">
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-br from-background via-background to-primary/5 relative overflow-hidden">
-      {/* Decorative background elements */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        {/* Wine stain effect */}
-        <div className="absolute -top-40 -right-40 w-96 h-96 rounded-full bg-primary/5 blur-3xl" />
-        <div className="absolute -bottom-40 -left-40 w-96 h-96 rounded-full bg-wine-burgundy/5 blur-3xl" />
-        
-        {/* Subtle pattern */}
-        <div 
-          className="absolute inset-0 opacity-[0.015]"
-          style={{
-            backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23722F37' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
-          }}
-        />
-      </div>
+    <div className="min-h-screen flex flex-col bg-background relative">
 
       {/* Header */}
       <header className="relative z-10 p-6">
@@ -203,7 +189,7 @@ export default function AuthPage() {
           <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center group-hover:bg-primary/15 transition-colors">
             <Wine className="w-5 h-5 text-primary" />
           </div>
-          <span className="font-serif font-semibold text-lg">My Cellar</span>
+          <span className="font-semibold text-lg">My Cellar</span>
         </Link>
       </header>
 
@@ -224,7 +210,7 @@ export default function AuthPage() {
               <GlassWater className="absolute -bottom-1 -left-1 w-4 h-4 text-primary/40 animate-pulse" style={{ animationDelay: "1s" }} />
             </div>
             
-            <h1 className="text-4xl font-bold font-serif mb-3 bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
+            <h1 className="text-4xl font-bold mb-3 bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
               {isSignUp ? "Join the Cellar" : "Welcome Back"}
             </h1>
             <p className="text-muted-foreground text-lg">
@@ -339,7 +325,7 @@ export default function AuthPage() {
               {/* Submit Button */}
               <Button 
                 type="submit" 
-                className="w-full h-14 rounded-2xl text-base font-semibold bg-gradient-to-r from-primary to-wine-burgundy hover:from-primary/90 hover:to-wine-burgundy/90 shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-all duration-300 group" 
+                className="w-full h-14 rounded-2xl text-base font-semibold bg-primary hover:bg-primary/90 transition-colors group" 
                 disabled={loading || pendingConfirmation}
               >
                 {loading ? (
@@ -386,8 +372,6 @@ export default function AuthPage() {
         </div>
       </main>
 
-      {/* Footer decoration */}
-      <footer className="relative z-10 h-24 bg-gradient-to-t from-primary/5 to-transparent" />
     </div>
   );
 }

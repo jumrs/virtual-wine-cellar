@@ -116,23 +116,9 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-br from-background via-background to-primary/5 relative overflow-hidden">
+    <div className="min-h-screen flex flex-col bg-background relative">
       <ConfigCheck />
 
-      {/* Decorative background elements */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        {/* Wine stain effect */}
-        <div className="absolute -top-40 -right-40 w-96 h-96 rounded-full bg-primary/5 blur-3xl" />
-        <div className="absolute -bottom-40 -left-40 w-96 h-96 rounded-full bg-wine-burgundy/5 blur-3xl" />
-        
-        {/* Subtle pattern */}
-        <div 
-          className="absolute inset-0 opacity-[0.015]"
-          style={{
-            backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23722F37' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
-          }}
-        />
-      </div>
 
       {/* Header */}
       <header className="relative z-10 sticky top-0 bg-background/80 backdrop-blur-xl border-b border-border/50">
@@ -234,8 +220,6 @@ export default function Home() {
 
       <BottomNav />
 
-      {/* Footer decoration */}
-      <footer className="relative z-10 h-24 bg-gradient-to-t from-primary/5 to-transparent" />
 
       {/* Edit Dialog - Lazy loaded */}
       {editDialogOpen && (
@@ -268,21 +252,7 @@ export default function Home() {
 /** Landing page for unauthenticated users */
 function LandingPage() {
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-br from-background via-background to-primary/5 relative overflow-hidden">
-      {/* Decorative background elements */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        {/* Wine stain effect */}
-        <div className="absolute -top-40 -right-40 w-96 h-96 rounded-full bg-primary/5 blur-3xl" />
-        <div className="absolute -bottom-40 -left-40 w-96 h-96 rounded-full bg-wine-burgundy/5 blur-3xl" />
-        
-        {/* Subtle pattern */}
-        <div 
-          className="absolute inset-0 opacity-[0.015]"
-          style={{
-            backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23722F37' fill-opacity='1'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
-          }}
-        />
-      </div>
+    <div className="min-h-screen flex flex-col bg-background relative">
 
       <div className="relative z-10 flex-1 flex items-center justify-center px-4">
         <div className="w-full max-w-md text-center">
@@ -291,7 +261,7 @@ function LandingPage() {
             <div className="w-24 h-24 mx-auto mb-6 rounded-full bg-primary/10 flex items-center justify-center">
               <WineIcon className="h-12 w-12 text-primary" />
             </div>
-            <h1 className="text-4xl font-bold mb-2 font-serif">My Cellar</h1>
+            <h1 className="text-4xl font-bold mb-2">My Cellar</h1>
             <p className="text-muted-foreground">
               Your personal wine collection, beautifully organized
             </p>
@@ -313,7 +283,7 @@ function LandingPage() {
 
           {/* Sign In */}
           <Link href="/auth" className="block">
-            <Button className="w-full h-14 text-base rounded-2xl bg-gradient-to-r from-primary to-wine-burgundy hover:from-primary/90 hover:to-wine-burgundy/90 shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-all duration-300">
+            <Button className="w-full h-14 text-base rounded-2xl bg-primary hover:bg-primary/90 transition-colors">
               <LogIn className="h-5 w-5 mr-2" />
               Sign In to Continue
             </Button>
@@ -321,8 +291,6 @@ function LandingPage() {
         </div>
       </div>
 
-      {/* Footer decoration */}
-      <footer className="relative z-10 h-24 bg-gradient-to-t from-primary/5 to-transparent" />
     </div>
   );
 }
