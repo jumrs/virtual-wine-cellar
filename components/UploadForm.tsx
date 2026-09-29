@@ -222,6 +222,7 @@ export function UploadForm({ cellarId }: UploadFormProps) {
           vintage: wine.extractedData.vintage,
           region: wine.extractedData.region,
           country: wine.extractedData.country,
+          cellarId: cellarId || undefined,
         }),
       });
 

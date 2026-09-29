@@ -7,6 +7,7 @@ import { Loader2, Send, Wine, UtensilsCrossed } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/lib/supabaseClient";
 import { cn } from "@/lib/utils";
+import { useCellar } from "@/components/CellarProvider";
 
 interface Message {
   role: "user" | "assistant";
@@ -18,9 +19,19 @@ export function PairingChat() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
+  const { activeCellar } = useCellar();
 
   const handleSend = async () => {
     if (!input.trim() || loading) return;
+
+    if (!activeCellar) {
+      toast({
+        title: "No cellar selected",
+        description: "Select a cellar to get pairing suggestions.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     const userMessage: Message = { role: "user", content: input };
     setMessages((prev) => [...prev, userMessage]);
@@ -41,11 +52,12 @@ export function PairingChat() {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${accessToken}`,
         },
-        body: JSON.stringify({ meal: input }),
+        body: JSON.stringify({ meal: input, cellarId: activeCellar.id }),
       });
 
       if (!response.ok) {
-        throw new Error("Failed to get pairing suggestions");
+        const errorData = await response.json().catch(() => null);
+        throw new Error(errorData?.error || "Failed to get pairing suggestions");
       }
 
       const data = await response.json();
@@ -57,7 +69,10 @@ export function PairingChat() {
     } catch (error) {
       toast({
         title: "Error",
-        description: "Failed to get pairing suggestions. Please try again.",
+        description:
+          error instanceof Error && error.message
+            ? error.message
+            : "Failed to get pairing suggestions. Please try again.",
         variant: "destructive",
       });
     } finally {
