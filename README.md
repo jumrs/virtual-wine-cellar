@@ -8,7 +8,7 @@ A modern web application for managing your wine collection with AI-powered label
 - 📚 **Inventory Management**: View and manage your personal wine collection
 - 👨‍👩‍👧‍👦 **Shared Cellars**: Share your wine cellar with family or friends for collaborative management
 - 🔄 **Real-time Sync**: See changes from other cellar members instantly
-- 🤖 **AI Pairing Assistant**: Get wine pairing suggestions based on your meals using GPT-4o
+- 🤖 **AI Pairing Assistant**: Get wine pairing suggestions based on your meals, powered by Groq (gpt-oss-120b)
 - 🔐 **User Authentication**: Secure authentication with Supabase Auth
 - 📱 **Responsive Design**: Beautiful, mobile-friendly interface built with TailwindCSS and ShadCN/UI
 
@@ -17,7 +17,7 @@ A modern web application for managing your wine collection with AI-powered label
 - **Frontend**: Next.js 15 (App Router) with TypeScript
 - **Styling**: TailwindCSS + ShadCN/UI components
 - **Database & Auth**: Supabase
-- **AI**: OpenAI API (GPT-4o for vision and text)
+- **AI**: OpenAI GPT-4o (label vision) and Groq gpt-oss-120b (pairing chat)
 - **Deployment**: Vercel-ready
 
 ## Prerequisites
@@ -128,7 +128,14 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
 SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
 
 OPENAI_API_KEY=your_openai_api_key
+
+# AI Sommelier (pairing chat) runs on Groq - free key at https://console.groq.com/keys
+GROQ_API_KEY=your_groq_api_key
+# Optional, defaults to openai/gpt-oss-120b
+# GROQ_MODEL=openai/gpt-oss-120b
 ```
+
+OpenAI is still used for wine label scanning (vision); the pairing chat uses Groq.
 
 ### 4. Run the Development Server
 

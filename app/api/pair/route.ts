@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { openai } from "@/lib/openaiClient";
+import OpenAI from "openai";
+import type { ChatCompletionCreateParamsNonStreaming } from "openai/resources/chat/completions";
+import { getGroq, groqModel, isReasoningModel, GroqNotConfiguredError } from "@/lib/groqClient";
 import { authenticateRequest, isAuthError } from "@/lib/apiUtils";
 import { fetchCellarWines } from "@/lib/cellarWines";
 import {
@@ -12,10 +14,22 @@ import {
 } from "@/lib/security";
 import type { Wine } from "@/types";
 
-/** Max wines sent to the model, to bound prompt size for very large cellars */
-const MAX_WINES_IN_PROMPT = 200;
+/**
+ * Prompt size limits. Groq's free tier allows roughly 8K tokens per minute,
+ * so a request (wine list + instructions + answer) is kept to ~5K tokens.
+ */
+/** Max wines sent to the model (highest-rated first) */
+const MAX_WINES_IN_PROMPT = 80;
 /** Max characters of each wine's notes included in the prompt */
-const MAX_NOTES_CHARS = 160;
+const MAX_NOTES_CHARS = 120;
+/** Answer budget; for reasoning models this also covers their thinking tokens */
+const MAX_COMPLETION_TOKENS = 1024;
+
+/** Groq-specific request fields not in the OpenAI SDK types */
+type GroqChatParams = ChatCompletionCreateParamsNonStreaming & {
+  /** gpt-oss: false keeps the reasoning text out of the response payload */
+  include_reasoning?: boolean;
+};
 
 /**
  * Format one wine as a compact line for the model, e.g.
@@ -147,8 +161,15 @@ export async function POST(request: NextRequest) {
     const winesList = winesForPrompt.map(formatWineForPrompt).join("\n");
     const hasRatings = winesForPrompt.some((w) => w.score != null);
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
+    const params: GroqChatParams = {
+      model: groqModel,
+      max_completion_tokens: MAX_COMPLETION_TOKENS,
+      // Pairing needs little deliberation; low effort keeps answers fast and
+      // leaves most of the token budget for the reply itself.
+      ...(isReasoningModel(groqModel) && {
+        reasoning_effort: "low" as const,
+        include_reasoning: false,
+      }),
       messages: [
         {
           role: "system",
@@ -182,16 +203,51 @@ Tone:
           content: `I'm having: ${sanitizedMeal}\n\nWines available in my cellar:\n${winesList}\n\nSuggest the best pairings from my cellar with brief reasoning.`,
         },
       ],
-      max_tokens: 500,
-    });
+    };
 
-    const suggestion = response.choices[0]?.message?.content || "I couldn't generate a pairing suggestion.";
+    const response = await getGroq().chat.completions.create(params);
+
+    const choice = response.choices[0];
+    const content = choice?.message?.content?.trim();
+    if (!content && process.env.NODE_ENV === "development") {
+      console.warn(`Empty sommelier reply (finish_reason: ${choice?.finish_reason})`);
+    }
+    const suggestion =
+      content || "I couldn't come up with a pairing this time. Try describing your meal a little differently.";
 
     return NextResponse.json({ suggestion });
   } catch (error: unknown) {
     // Log error securely (only in development)
     if (process.env.NODE_ENV === "development") {
       console.error("Error generating pairing suggestion:", error);
+    }
+
+    if (error instanceof GroqNotConfiguredError) {
+      return NextResponse.json(
+        { error: "The AI sommelier isn't set up yet: add GROQ_API_KEY to the server environment." },
+        { status: 503 }
+      );
+    }
+
+    if (error instanceof OpenAI.APIError) {
+      // Groq free tier: requests/tokens per minute and per day
+      if (error.status === 429) {
+        const retryAfter = error.headers?.["retry-after"];
+        return NextResponse.json(
+          {
+            error: retryAfter
+              ? `The sommelier is busy right now. Please try again in ${Math.ceil(Number(retryAfter))} seconds.`
+              : "The sommelier is busy right now. Please try again in a minute.",
+          },
+          { status: 429, headers: retryAfter ? { "Retry-After": String(retryAfter) } : undefined }
+        );
+      }
+      if (error.status === 401 || error.status === 403) {
+        return NextResponse.json(
+          { error: "The AI sommelier's Groq API key was rejected. Check GROQ_API_KEY." },
+          { status: 502 }
+        );
+      }
     }
 
     return NextResponse.json(
