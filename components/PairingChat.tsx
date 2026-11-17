@@ -24,8 +24,8 @@ export function PairingChat() {
 
   /** Send the typed input, or `text` directly (e.g. a tapped suggestion) */
   const handleSend = async (text: string = input) => {
-    const meal = text.trim();
-    if (!meal || loading) return;
+    const message = text.trim();
+    if (!message || loading) return;
 
     if (!activeCellar) {
       toast({
@@ -36,7 +36,9 @@ export function PairingChat() {
       return;
     }
 
-    const userMessage: Message = { role: "user", content: meal };
+    // Earlier turns let the sommelier follow up on questions it asked
+    const history = messages;
+    const userMessage: Message = { role: "user", content: message };
     setMessages((prev) => [...prev, userMessage]);
     setInput("");
     setLoading(true);
@@ -55,7 +57,7 @@ export function PairingChat() {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${accessToken}`,
         },
-        body: JSON.stringify({ meal, cellarId: activeCellar.id }),
+        body: JSON.stringify({ message, history, cellarId: activeCellar.id }),
       });
 
       if (!response.ok) {
@@ -70,6 +72,9 @@ export function PairingChat() {
       };
       setMessages((prev) => [...prev, assistantMessage]);
     } catch (error) {
+      // Drop the unanswered message and give the text back so it can be resent
+      setMessages((prev) => (prev[prev.length - 1] === userMessage ? prev.slice(0, -1) : prev));
+      setInput((current) => current || message);
       toast({
         title: "Error",
         description:
